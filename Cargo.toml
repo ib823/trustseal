@@ -31,6 +31,10 @@ dotenvy = "0.15"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
 redis = { version = "0.27", features = ["tokio-comp"] }
+async-trait = "0.1"
+zeroize = { version = "1", features = ["derive"] }
+base64 = "0.22"
+rand = "0.8"
 
 [profile.release]
 opt-level = 3

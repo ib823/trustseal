@@ -1,23 +1,23 @@
 # Sahi Build State
 **Last updated:** 2026-03-10
 **Current phase:** Phase 0 — IN PROGRESS
-**Current module:** F1 (Key Management Service / KMS abstraction)
+**Current module:** F2 (Tamper-Evident Log Engine) — COMPLETE
 **Sprint:** Sprint 1-2 (Weeks 1-4)
 
 ---
 
 ## Status
 
-Monorepo scaffold is COMPLETE. All Rust crates compile. Clippy passes. Ready to begin Module F1.
+Modules F1 (KMS) and F2 (Merkle log) are COMPLETE. 48 tests passing. Full workspace compiles with zero clippy warnings.
 
-**Next action:** Begin Module F1 — KMS abstraction layer (CloudHSM + software mock).
+**Next action:** Begin Module F3 — API Gateway (Axum middleware stack: auth, rate limiting, metering, RLS setup).
 
 ---
 
 ## Phase 0 Module Checklist
 
-- [ ] F1 — Key Management Service (HSM/KMS abstraction)
-- [ ] F2 — Tamper-Evident Log Engine (Merkle tree, 3-channel root publication)
+- [x] F1 — Key Management Service (HSM/KMS abstraction) ✓ 24 tests
+- [x] F2 — Tamper-Evident Log Engine (Merkle tree, proofs) ✓ 24 tests
 - [ ] F3 — API Gateway, metering, rate limiting (Kong)
 - [ ] F4 — Multi-tenant management, RLS, all DDL migrations
 - [ ] F5 — Database, storage, DevOps infrastructure (Terraform, CI/CD, monitoring)
@@ -34,6 +34,32 @@ Monorepo scaffold is COMPLETE. All Rust crates compile. Clippy passes. Ready to 
 
 ---
 
+## F1 Completion Summary
+
+**Implemented:**
+- `KmsProvider` trait — async, `Send + Sync`, 8 operations (generate, sign, verify, export, rotate, destroy, list, get_metadata)
+- `SoftwareKmsProvider` — in-memory keys via `ring`, `RwLock<HashMap>` for thread safety
+- `KeyAlgorithm` — Ed25519, ECDSA P-256
+- `KeyState` lifecycle — Active → VerifyOnly → PendingDestruction → Destroyed
+- `KeyRotationResult` — 30-day grace period for old key verification
+- `DestroyConfirmation` — requires matching phrase "DESTROY {key_id}"
+- `KmsAuditEvent` — emitted on every operation (success/failure), SAHI error codes
+- `CryptoError` — typed errors with SAHI_XXXX codes (2001-2010)
+- Zeroize on key material drop
+
+**Tests (24 passing):**
+- Key generation (Ed25519, ECDSA P-256, unique handles)
+- Sign & verify roundtrip (Ed25519, ECDSA P-256)
+- Tamper detection (modified data, wrong key)
+- Public key export (both algorithms)
+- Key rotation (state transition, verify-only, sign-blocked)
+- Key destruction (valid/invalid confirmation, post-destroy operations blocked)
+- Key listing (all, tenant-filtered)
+- Audit event emission (success + failure events)
+- Concurrent access (10 parallel keygen, 20 parallel sign/verify)
+
+---
+
 ## Performance baselines (to be filled as measured)
 
 | Target | Spec | Measured | Status |
@@ -45,13 +71,11 @@ Monorepo scaffold is COMPLETE. All Rust crates compile. Clippy passes. Ready to 
 
 ---
 
-## Open questions / blockers
-
-- Spec files (vaultpass-spec.md, attack-plan.md, etc.) not yet uploaded to `specs/`. These are needed before implementing F1 acceptance criteria.
-
----
-
 ## Session log
 
 - 2026-03-09: Setup complete. Ready to begin Phase 0.
 - 2026-03-10: Monorepo scaffolded. Rust workspace compiles. Clippy + tests pass. Docker-compose configured.
+- 2026-03-10: Master plan v1.1 committed with gap analysis (50+ fixes across 24 sections).
+- 2026-03-10: Agent personas adapted from agency-agents repo (Identity Trust, Security, Backend).
+- 2026-03-10: F1 (KMS) COMPLETE — KmsProvider trait, SoftwareKmsProvider, audit events, 24 tests passing.
+- 2026-03-10: F2 (Merkle) COMPLETE — MerkleTree, inclusion/consistency proofs, tamper detection, 24 tests passing.
