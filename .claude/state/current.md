@@ -8,10 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5 COMPLETE.** 320+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6 COMPLETE.** 320+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Current module:** VP-6 — Admin Portal (Next.js) (next)
-**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier)
+**Current module:** VP-7 — Guard Tablet (Next.js PWA) (next)
+**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal)
 
 ---
 
@@ -97,6 +97,43 @@
 - 2026-03-10: VP-4 — Wallet App COMPLETE. Full Flutter scaffold (42 files). Features: credentials, scanning, onboarding, settings. Services: keystore (Android/iOS), BLE, NFC, crypto FFI, sync, auth, security. Rust FFI: BLE payload encoding, revocation checking. Platform: Android Keystore + HCE, iOS Secure Enclave. 230 tests total.
 - 2026-03-10: VP-4 AUDIT — Fixed 3 hardcoded UI strings (scanning_or, scanning_again, access_not_authorized) with EN/MS i18n. Fixed Rust clippy warnings (unused params, pedantic). All 230 tests passing. Crypto FFI integration deferred (requires flutter_rust_bridge_codegen).
 - 2026-03-10: VP-5 — Edge Verifier (Raspberry Pi) COMPLETE. Rust firmware: BLE (GATT server, advertiser, protocol), NFC (PC/SC, APDU, NDEF), crypto (SD-JWT, DID resolver), policy (rules engine, offline mode), revocation (status list cache, MQTT sync), audit (SQLite append-only), hardware (GPIO, LED, buzzer, display, tamper). 90 tests, fail-closed security, feature flags for simulation/production.
+- 2026-03-10: VP-6 — Admin Portal COMPLETE. Next.js 14 with App Router. Dashboard (stats, activity, charts, verifier status), Residents (table, CRUD, credential management), Access Logs (filterable table, pagination), Verifiers (grid, status monitoring), Analytics (overview, peak hours, denial reasons, trends), Settings (property, security, notifications, schedule, team). i18n (EN/MS), React Query, Zustand, shadcn/ui. 47 files, build passing.
+
+---
+
+## VP-6 Completion Summary
+
+**Admin Portal Structure (`apps/admin-portal/src/`):**
+- `app/` — Next.js 14 App Router, dashboard route group with 7 pages
+- `components/layout/` — Sidebar (workspace switcher, navigation), Header (search, theme toggle, notifications, user menu)
+- `components/dashboard/` — StatsCards, RecentActivity, AccessChart, VerifierStatus
+- `components/residents/` — ResidentTable, ResidentTableSkeleton, AddResidentButton, ResidentDetailPage
+- `components/access-logs/` — AccessLogTable (pagination), AccessLogFilters (status, direction, search)
+- `components/verifiers/` — VerifierGrid (status cards), VerifierGridSkeleton, AddVerifierButton
+- `components/analytics/` — AnalyticsOverview, PeakHoursChart (bar), DenialReasons (pie), EntryTrends (area)
+- `components/settings/` — SettingsTabs (property, security, notifications, schedule, team)
+- `components/ui/` — Button, Card, Input, Badge, Avatar, Toaster, TableSkeleton (shadcn/ui style)
+- `i18n/` — config.ts (EN/MS locales), request.ts, messages/ (en.json, ms.json)
+- `lib/api/` — client.ts (ApiClient), residents.ts, verifiers.ts, access-logs.ts, analytics.ts
+- `lib/stores/` — workspace-store.ts, user-store.ts (Zustand with persistence)
+- `lib/providers/` — QueryProvider, ThemeProvider
+
+**Design System per spec:**
+- Font: Plus Jakarta Sans (primary), JetBrains Mono (IDs/codes)
+- Colors: 95% slate monochrome + signal colors (green-500, amber-500, red-500) for semantic meaning
+- Theme: Light/dark mode via next-themes
+- Components: shadcn/ui patterns with Radix primitives
+
+**Features:**
+- Dashboard: 4 stat cards, real-time activity, access pattern chart, verifier status
+- Residents: Searchable table, credential status badges, detail page with actions
+- Access Logs: Filterable by status/direction, pagination, linked to resident details
+- Verifiers: Grid view with online/offline/degraded status, signal strength, events
+- Analytics: Overview stats with trends, peak hours bar chart, denial pie chart, 30-day trends
+- Settings: 5 tabs (property info, security policy, notifications, schedule, team)
+- i18n: EN/MS with next-intl, all UI strings in JSON files
+
+**Build status:** TypeScript + ESLint + Next.js build passing
 
 ---
 
@@ -240,7 +277,7 @@
 - [x] VP-3c — Business Logic Rules Engine ✓ 37 tests
 - [x] VP-4 — Wallet App (Flutter) ✓ 42 files
 - [x] VP-5 — Edge Verifier (Raspberry Pi) ✓ 30 files, 90 tests
-- [ ] VP-6 — Admin Portal (Next.js)
+- [x] VP-6 — Admin Portal (Next.js) ✓ 47 files
 - [ ] VP-7 — Guard Tablet (Next.js PWA)
 - [ ] VP-8 — Guest Web Flow
 - [ ] VP-9 — Onboarding + KYC flows
