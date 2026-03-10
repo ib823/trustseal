@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
@@ -13,13 +14,13 @@ export async function generateMetadata() {
 }
 
 export default function AccessLogsPage() {
+  const t = useTranslations("accessLogs");
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Access Logs</h1>
-        <p className="text-muted-foreground">
-          View and analyze entry and exit events
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground">{t("description")}</p>
       </div>
 
       <AccessLogFilters />
