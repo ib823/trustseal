@@ -21,3 +21,5 @@ ulid = { workspace = true }
 chrono = { workspace = true }
 redis = { workspace = true }
 crypto-engine = { path = "../../packages/crypto-engine" }
+async-trait = { workspace = true }
+base64 = { workspace = true }

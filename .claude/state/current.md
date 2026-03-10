@@ -1,16 +1,16 @@
 # Sahi Build State
 **Last updated:** 2026-03-10
 **Current phase:** Phase 0 — IN PROGRESS
-**Current module:** F2 (Tamper-Evident Log Engine) — COMPLETE
+**Current module:** F3 (API Gateway) — COMPLETE
 **Sprint:** Sprint 1-2 (Weeks 1-4)
 
 ---
 
 ## Status
 
-Modules F1 (KMS) and F2 (Merkle log) are COMPLETE. 48 tests passing. Full workspace compiles with zero clippy warnings.
+Modules F1 (KMS), F2 (Merkle log), and F3 (API Gateway) are COMPLETE. 48 tests passing. Full workspace compiles with zero clippy warnings. Platform API starts and serves /health.
 
-**Next action:** Begin Module F3 — API Gateway (Axum middleware stack: auth, rate limiting, metering, RLS setup).
+**Next action:** Begin Module F4 — Multi-tenant management (RLS, tenant CRUD, all DDL migrations).
 
 ---
 
@@ -18,7 +18,7 @@ Modules F1 (KMS) and F2 (Merkle log) are COMPLETE. 48 tests passing. Full worksp
 
 - [x] F1 — Key Management Service (HSM/KMS abstraction) ✓ 24 tests
 - [x] F2 — Tamper-Evident Log Engine (Merkle tree, proofs) ✓ 24 tests
-- [ ] F3 — API Gateway, metering, rate limiting (Kong)
+- [x] F3 — API Gateway (Axum middleware stack, rate limiting, tenant extraction)
 - [ ] F4 — Multi-tenant management, RLS, all DDL migrations
 - [ ] F5 — Database, storage, DevOps infrastructure (Terraform, CI/CD, monitoring)
 - [ ] F6 — Trust Registry
@@ -79,3 +79,4 @@ Modules F1 (KMS) and F2 (Merkle log) are COMPLETE. 48 tests passing. Full worksp
 - 2026-03-10: Agent personas adapted from agency-agents repo (Identity Trust, Security, Backend).
 - 2026-03-10: F1 (KMS) COMPLETE — KmsProvider trait, SoftwareKmsProvider, audit events, 24 tests passing.
 - 2026-03-10: F2 (Merkle) COMPLETE — MerkleTree, inclusion/consistency proofs, tamper detection, 24 tests passing.
+- 2026-03-10: F3 (Gateway) COMPLETE — Axum middleware chain (request ID, tenant extraction, rate limiting, CORS, compression, tracing), /health endpoint, graceful shutdown.
