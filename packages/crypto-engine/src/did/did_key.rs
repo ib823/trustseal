@@ -156,8 +156,9 @@ fn build_did_document(
             })
         }
         KeyType::P256 | KeyType::Secp256k1 => {
-            // For compressed points, we'd need to decompress
-            // For uncompressed (65 bytes: 0x04 || x || y), extract x and y
+            // Only uncompressed points (65 bytes: 0x04 || x || y) are supported
+            // Compressed points (33 bytes) require elliptic curve decompression
+            // which is not implemented. Reject with clear error.
             if raw_key.len() == 65 && raw_key[0] == 0x04 {
                 let x = &raw_key[1..33];
                 let y = &raw_key[33..65];
@@ -168,15 +169,15 @@ fn build_did_document(
                     "y": URL_SAFE_NO_PAD.encode(y)
                 })
             } else if raw_key.len() == 33 {
-                // Compressed point - store as multibase for now
-                // Full decompression requires elliptic curve math
-                json!({
-                    "kty": "EC",
-                    "crv": key_type.jwk_curve(),
-                    "x": URL_SAFE_NO_PAD.encode(&raw_key[1..])  // Skip compression byte
-                })
+                // Compressed point - cannot decompress without elliptic curve math
+                return Err(format!(
+                    "Compressed EC points not supported for {key_type:?}. Use uncompressed (65-byte) format."
+                ));
             } else {
-                return Err("Invalid EC key format".to_string());
+                let len = raw_key.len();
+                return Err(format!(
+                    "Invalid EC key format for {key_type:?}: expected 65 bytes (uncompressed), got {len}"
+                ));
             }
         }
     };
@@ -362,5 +363,40 @@ mod tests {
 
         // But no key agreement (X25519 would have that)
         assert!(doc.key_agreement.is_empty());
+    }
+
+    #[test]
+    fn p256_uncompressed_resolves() {
+        // Create a P-256 did:key with uncompressed point (65 bytes)
+        let x = [0x01u8; 32];
+        let y = [0x02u8; 32];
+        let did = from_p256_public_key(&x, &y);
+
+        let doc = resolve(&did).unwrap();
+        assert_eq!(doc.verification_method.len(), 1);
+        assert_eq!(doc.verification_method[0].method_type, "JsonWebKey2020");
+
+        // JWK should have both x and y coordinates
+        let jwk = doc.verification_method[0].public_key_jwk.as_ref().unwrap();
+        assert_eq!(jwk["kty"], "EC");
+        assert_eq!(jwk["crv"], "P-256");
+        assert!(jwk["x"].is_string());
+        assert!(jwk["y"].is_string());
+    }
+
+    #[test]
+    fn p256_compressed_rejected() {
+        // Manually create a did:key with P-256 compressed point (33 bytes)
+        // Multicodec prefix: 0x8024, followed by 33-byte compressed point
+        let mut multicodec = vec![0x80, 0x24];
+        multicodec.push(0x02); // Compression byte (even Y)
+        multicodec.extend_from_slice(&[0x01u8; 32]); // X coordinate
+
+        let encoded = bs58::encode(&multicodec).into_string();
+        let did = format!("did:key:z{encoded}");
+
+        let result = resolve(&did);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Compressed EC points not supported"));
     }
 }

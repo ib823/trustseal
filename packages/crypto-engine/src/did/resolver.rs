@@ -50,8 +50,8 @@ impl Default for ResolverConfig {
     fn default() -> Self {
         Self {
             did_web: DidWebConfig::default(),
-            did_key_ttl: Duration::from_secs(3600),     // 1 hour (deterministic)
-            did_web_ttl: Duration::from_secs(3600),     // 1 hour
+            did_key_ttl: Duration::from_secs(300),      // 5 min per spec (L1 TTL)
+            did_web_ttl: Duration::from_secs(3600),     // 1 hour per spec
             enable_cache: true,
             cache_capacity: 100,
         }
