@@ -15,11 +15,19 @@
 //! - `trust_registry` — Trust Registry data model (F6).
 //! - `sd_jwt` — SD-JWT credential operations (VP-1).
 //! - `did` — DID resolution (VP-2). did:key, did:web, caching.
+//! - `status_list` — Bitstring Status List for revocation (VP-3).
+//! - `credential_types` — VaultPass credential type definitions (VP-3).
+//! - `compliance` — Compliance enforcement for credential issuance (VP-3b).
+//! - `access_rules` — Business logic rules engine for access decisions (VP-3c).
 //! - `error` — Typed error types with SAHI_XXXX codes.
 
+pub mod access_rules;
+pub mod compliance;
+pub mod credential_types;
 pub mod did;
 pub mod error;
 pub mod kms;
 pub mod merkle;
 pub mod sd_jwt;
+pub mod status_list;
 pub mod trust_registry;

@@ -66,6 +66,22 @@ pub enum ErrorCode {
     /// SAHI_2202: Append to Merkle log failed
     AppendFailed,
 
+    // ── Compliance (2300-2399) ──────────────────────────────────────────
+    /// SAHI_2300: Identity verification required
+    IdentityVerificationRequired,
+    /// SAHI_2301: Identity verification expired
+    IdentityVerificationExpired,
+    /// SAHI_2302: Unit ownership pending confirmation
+    UnitOwnershipPending,
+    /// SAHI_2303: Unit ownership expired
+    UnitOwnershipExpired,
+    /// SAHI_2304: User is blacklisted
+    UserBlacklisted,
+    /// SAHI_2305: Credential limit exceeded
+    CredentialLimitExceeded,
+    /// SAHI_2306: Daily issuance limit exceeded
+    DailyLimitExceeded,
+
     // ── Signing Ceremony (3000-3099) ────────────────────────────────────
     /// SAHI_3001: Signing ceremony expired
     CeremonyExpired,
@@ -141,6 +157,14 @@ impl ErrorCode {
             Self::SequenceGap => "SAHI_2200",
             Self::RootMismatch => "SAHI_2201",
             Self::AppendFailed => "SAHI_2202",
+            // Compliance
+            Self::IdentityVerificationRequired => "SAHI_2300",
+            Self::IdentityVerificationExpired => "SAHI_2301",
+            Self::UnitOwnershipPending => "SAHI_2302",
+            Self::UnitOwnershipExpired => "SAHI_2303",
+            Self::UserBlacklisted => "SAHI_2304",
+            Self::CredentialLimitExceeded => "SAHI_2305",
+            Self::DailyLimitExceeded => "SAHI_2306",
             // Signing Ceremony
             Self::CeremonyExpired => "SAHI_3001",
             Self::InvalidTransition => "SAHI_3002",
@@ -183,6 +207,13 @@ impl ErrorCode {
             | Self::DestroyConfirmationFailed => "KMS",
             Self::InvalidSdJwt | Self::CredentialRevoked | Self::CredentialExpired => "Credential",
             Self::SequenceGap | Self::RootMismatch | Self::AppendFailed => "MerkleLog",
+            Self::IdentityVerificationRequired
+            | Self::IdentityVerificationExpired
+            | Self::UnitOwnershipPending
+            | Self::UnitOwnershipExpired
+            | Self::UserBlacklisted
+            | Self::CredentialLimitExceeded
+            | Self::DailyLimitExceeded => "Compliance",
             Self::CeremonyExpired | Self::InvalidTransition | Self::DocumentHashMismatch => {
                 "SigningCeremony"
             }
@@ -313,6 +344,13 @@ mod tests {
             ErrorCode::SequenceGap,
             ErrorCode::RootMismatch,
             ErrorCode::AppendFailed,
+            ErrorCode::IdentityVerificationRequired,
+            ErrorCode::IdentityVerificationExpired,
+            ErrorCode::UnitOwnershipPending,
+            ErrorCode::UnitOwnershipExpired,
+            ErrorCode::UserBlacklisted,
+            ErrorCode::CredentialLimitExceeded,
+            ErrorCode::DailyLimitExceeded,
             ErrorCode::CeremonyExpired,
             ErrorCode::InvalidTransition,
             ErrorCode::DocumentHashMismatch,
@@ -338,7 +376,7 @@ mod tests {
                 code.code()
             );
         }
-        assert_eq!(seen.len(), 38, "Expected 38 unique error codes");
+        assert_eq!(seen.len(), 45, "Expected 45 unique error codes");
     }
 
     #[test]

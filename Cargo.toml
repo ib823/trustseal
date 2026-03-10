@@ -9,6 +9,9 @@ members = [
     "apps/verify-service",
     "edge/verifier",
 ]
+exclude = [
+    "apps/wallet/rust",  # Built separately by flutter_rust_bridge
+]
 
 [workspace.package]
 edition = "2021"
