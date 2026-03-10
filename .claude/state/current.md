@@ -8,10 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1 IN PROGRESS.** 81 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational. Error codes, ULID factory, time utilities, STRIDE threat model, and SD-JWT core in place.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1 COMPLETE. VP-2 COMPLETE.** 124 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Current module:** VP-1 — Crypto Engine SD-JWT operations
-**Status:** SD-JWT issuer, holder, and verifier implemented with KMS integration. 15 SD-JWT tests passing.
+**Current module:** VP-3 — Credential Format & Status List (next)
+**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution)
 
 ---
 
@@ -88,3 +88,43 @@
 - 2026-03-10: Phase 0 prerequisites — sahi-core crate (error codes, ULID factory, time utils), STRIDE threat model. 66 tests total.
 - 2026-03-10: VP-1 — SD-JWT module implemented (issuer, holder, verifier with KMS integration). VaultPassCredential types. 81 tests total.
 - 2026-03-10: Fixed SAHI_1200 (RateLimitExceeded) — added to ErrorCode enum, updated rate_limit.rs to use SahiError. 38 error codes, 11 domains.
+- 2026-03-10: VP-2 — DID Resolution Layer COMPLETE. did:key (Ed25519/P-256), did:web (URL mapping, validation), LRU cache. 43 DID tests, 124 total.
+
+---
+
+## Phase 1 Module Checklist
+
+- [x] VP-1 — SD-JWT Crypto Engine ✓ 15 tests
+- [x] VP-2 — DID Resolution Layer ✓ 43 tests
+- [ ] VP-3 — Credential Format & Status List
+- [ ] VP-3b — Compliance Enforcement Layer
+- [ ] VP-3c — Business Logic Rules Engine
+- [ ] VP-4 — Wallet App (Flutter)
+- [ ] VP-5 — Edge Verifier (Raspberry Pi)
+- [ ] VP-6 — Admin Portal (Next.js)
+- [ ] VP-7 — Guard Tablet (Next.js PWA)
+- [ ] VP-8 — Guest Web Flow
+- [ ] VP-9 — Onboarding + KYC flows
+
+---
+
+## VP-2 Completion Summary
+
+**Implemented:**
+- `Did` type with parsing (method, path, query, fragment)
+- `DidDocument` following W3C DID Core 1.0 (context, verification methods, services)
+- `VerificationMethod` with JWK/multibase/base58 public key extraction
+- `did:key` resolver (Ed25519, P-256, X25519, secp256k1 multicodec)
+- `did:web` URL mapping (domain, port, path handling per spec)
+- `did:peer` stub (Phase 2)
+- `DidCache` — LRU cache with TTL, statistics, Redis key helpers
+- `DidResolver` — sync resolver for did:key with caching
+- `AsyncDidResolver` — async resolver for did:web (requires http feature)
+
+**Tests (43 passing):**
+- DID parsing (key, web, peer, fragments)
+- did:key resolution (Ed25519, roundtrip, relationships)
+- did:web URL conversion (domain, port, path, localhost)
+- Document validation
+- Cache operations (insert, get, evict, expire, stats)
+- Resolver caching behavior
