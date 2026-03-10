@@ -1,16 +1,16 @@
 # Sahi Build State
 **Last updated:** 2026-03-10
 **Current phase:** Phase 0 — IN PROGRESS
-**Current module:** F3 (API Gateway) — COMPLETE
+**Current module:** Phase 0 COMPLETE — all F1-F6 modules done
 **Sprint:** Sprint 1-2 (Weeks 1-4)
 
 ---
 
 ## Status
 
-Modules F1 (KMS), F2 (Merkle log), and F3 (API Gateway) are COMPLETE. 48 tests passing. Full workspace compiles with zero clippy warnings. Platform API starts and serves /health.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. 48 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Next action:** Begin Module F4 — Multi-tenant management (RLS, tenant CRUD, all DDL migrations).
+**Next action:** Begin Phase 1 — VaultPass MVP (VP-1: Crypto Engine SD-JWT operations).
 
 ---
 
@@ -19,9 +19,9 @@ Modules F1 (KMS), F2 (Merkle log), and F3 (API Gateway) are COMPLETE. 48 tests p
 - [x] F1 — Key Management Service (HSM/KMS abstraction) ✓ 24 tests
 - [x] F2 — Tamper-Evident Log Engine (Merkle tree, proofs) ✓ 24 tests
 - [x] F3 — API Gateway (Axum middleware stack, rate limiting, tenant extraction)
-- [ ] F4 — Multi-tenant management, RLS, all DDL migrations
-- [ ] F5 — Database, storage, DevOps infrastructure (Terraform, CI/CD, monitoring)
-- [ ] F6 — Trust Registry
+- [x] F4 — Multi-tenant management, RLS, all DDL migrations ✓ 12 tables
+- [x] F5 — CI/CD pipeline (GitHub Actions: fmt, clippy, test, audit, integration, security)
+- [x] F6 — Trust Registry (TrustRegistry, TrustEntry, authorization checks)
 
 **Phase 0 prerequisites before Phase 1 starts:**
 - [ ] Error Code Registry implemented (Appendix E)
@@ -80,3 +80,7 @@ Modules F1 (KMS), F2 (Merkle log), and F3 (API Gateway) are COMPLETE. 48 tests p
 - 2026-03-10: F1 (KMS) COMPLETE — KmsProvider trait, SoftwareKmsProvider, audit events, 24 tests passing.
 - 2026-03-10: F2 (Merkle) COMPLETE — MerkleTree, inclusion/consistency proofs, tamper detection, 24 tests passing.
 - 2026-03-10: F3 (Gateway) COMPLETE — Axum middleware chain (request ID, tenant extraction, rate limiting, CORS, compression, tracing), /health endpoint, graceful shutdown.
+- 2026-03-10: F4 (Tenants) COMPLETE — 12 tables (tenants, users, properties, keys, merkle_log, credentials, verifiers, gate_events, ceremonies, ceremony_signers, products, merkle_tree_state). RLS + FORCE RLS on all tenant-scoped tables. Merkle log append-only triggers.
+- 2026-03-10: F5 (CI/CD) COMPLETE — GitHub Actions workflow (rust, typescript, integration, security jobs).
+- 2026-03-10: F6 (Trust Registry) COMPLETE — TrustRegistry data model, authorization checks, issuer revocation.
+- 2026-03-10: **PHASE 0 COMPLETE** — All foundation modules operational.

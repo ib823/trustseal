@@ -16,3 +16,4 @@
 pub mod error;
 pub mod kms;
 pub mod merkle;
+pub mod trust_registry;
