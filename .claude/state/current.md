@@ -8,7 +8,7 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1 COMPLETE. VP-2 COMPLETE.** 124 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1 COMPLETE. VP-2 COMPLETE (audited).** 126 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
 **Current module:** VP-3 — Credential Format & Status List (next)
 **Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution)
@@ -89,6 +89,7 @@
 - 2026-03-10: VP-1 — SD-JWT module implemented (issuer, holder, verifier with KMS integration). VaultPassCredential types. 81 tests total.
 - 2026-03-10: Fixed SAHI_1200 (RateLimitExceeded) — added to ErrorCode enum, updated rate_limit.rs to use SahiError. 38 error codes, 11 domains.
 - 2026-03-10: VP-2 — DID Resolution Layer COMPLETE. did:key (Ed25519/P-256), did:web (URL mapping, validation), LRU cache. 43 DID tests, 124 total.
+- 2026-03-10: VP-2 AUDIT — Fixed TTL (5m for L1), P-256 compressed point rejection, added 2 tests. Redis/PostgreSQL L2/L3 deferred to hardening. 126 tests.
 
 ---
 
