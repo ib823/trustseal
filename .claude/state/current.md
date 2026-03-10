@@ -8,9 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. 66 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational. Error codes, ULID factory, time utilities, and STRIDE threat model in place.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1 IN PROGRESS.** 81 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational. Error codes, ULID factory, time utilities, STRIDE threat model, and SD-JWT core in place.
 
-**Next action:** Begin Phase 1 — VaultPass MVP (VP-1: Crypto Engine SD-JWT operations).
+**Current module:** VP-1 — Crypto Engine SD-JWT operations
+**Status:** SD-JWT issuer, holder, and verifier implemented with KMS integration. 15 SD-JWT tests passing.
 
 ---
 
@@ -85,3 +86,4 @@
 - 2026-03-10: F6 (Trust Registry) COMPLETE — TrustRegistry data model, authorization checks, issuer revocation.
 - 2026-03-10: **PHASE 0 COMPLETE** — All foundation modules operational.
 - 2026-03-10: Phase 0 prerequisites — sahi-core crate (error codes, ULID factory, time utils), STRIDE threat model. 66 tests total.
+- 2026-03-10: VP-1 — SD-JWT module implemented (issuer, holder, verifier with KMS integration). VaultPassCredential types. 81 tests total.

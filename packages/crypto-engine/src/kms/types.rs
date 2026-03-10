@@ -34,6 +34,11 @@ impl KeyHandle {
     pub fn new(id: String) -> Self {
         Self { id }
     }
+
+    /// Returns the key ID.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
 }
 
 impl fmt::Display for KeyHandle {
@@ -49,11 +54,25 @@ pub struct Signature {
     pub algorithm: KeyAlgorithm,
 }
 
+impl Signature {
+    /// Returns the raw signature bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
 /// Public key bytes — safe to export and distribute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicKeyBytes {
     pub bytes: Vec<u8>,
     pub algorithm: KeyAlgorithm,
+}
+
+impl PublicKeyBytes {
+    /// Returns the raw public key bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
 }
 
 /// Key metadata — returned by list_keys. Never contains private key material.
