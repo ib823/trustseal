@@ -1,0 +1,53 @@
+{
+  "model": "claude-opus-4-5",
+  "permissions": {
+    "allow": [
+      "Bash(cargo:*)",
+      "Bash(pnpm:*)",
+      "Bash(flutter:*)",
+      "Bash(dart:*)",
+      "Bash(git:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(echo:*)",
+      "Bash(psql:*)",
+      "Bash(redis-cli:*)",
+      "Bash(sqlx:*)",
+      "Bash(cargo-audit:*)",
+      "Bash(clippy:*)",
+      "Bash(rustfmt:*)",
+      "Bash(wasm-pack:*)",
+      "Bash(turbo:*)",
+      "Bash(kubectl:*)",
+      "Bash(terraform:*)",
+      "Bash(k6:*)",
+      "Bash(jq:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(curl:*)",
+      "Bash(openssl:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(ts-node:*)",
+      "Bash(playwright:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(sudo rm -rf:*)",
+      "WebFetch(domain:*.internal)",
+      "WebFetch(domain:169.254.*)"
+    ]
+  },
+  "env": {
+    "RUST_LOG": "info",
+    "RUST_BACKTRACE": "1",
+    "SQLX_OFFLINE": "false"
+  }
+}

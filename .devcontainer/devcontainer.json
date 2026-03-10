@@ -1,0 +1,114 @@
+{
+  "name": "Sahi Platform Dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "1.78",
+      "profile": "default"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "nodeGypDependencies": true
+    },
+    "ghcr.io/devcontainers/features/flutter:1": {
+      "version": "3.19.0"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true
+    }
+  },
+
+  "onCreateCommand": "bash .devcontainer/setup.sh",
+
+  "postStartCommand": "docker-compose up -d postgres redis mqtt 2>/dev/null || true",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb",
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "humao.rest-client",
+        "GitHub.copilot",
+        "github.vscode-github-actions",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "rust-analyzer.cargo.features": "all",
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.checkOnSave.extraArgs": ["--", "-D", "warnings"],
+        "rust-analyzer.procMacro.enable": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "[dart]": {
+          "editor.defaultFormatter": "Dart-Code.dart-code"
+        },
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "sqltools.connections": [
+          {
+            "name": "Sahi Local",
+            "driver": "PostgreSQL",
+            "server": "localhost",
+            "port": 5432,
+            "database": "vaultpass_platform",
+            "username": "vaultpass",
+            "password": "password"
+          }
+        ]
+      }
+    }
+  },
+
+  "forwardPorts": [3000, 3001, 3002, 3003, 5432, 6379, 1883, 8000, 9001],
+
+  "portsAttributes": {
+    "3000": { "label": "Platform API", "onAutoForward": "silent" },
+    "3001": { "label": "Admin Portal", "onAutoForward": "notify" },
+    "3002": { "label": "Guest Web", "onAutoForward": "silent" },
+    "3003": { "label": "Visitor Web", "onAutoForward": "silent" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" },
+    "6379": { "label": "Redis", "onAutoForward": "silent" },
+    "8000": { "label": "Issuer Service", "onAutoForward": "silent" },
+    "1883": { "label": "MQTT", "onAutoForward": "silent" }
+  },
+
+  "remoteEnv": {
+    "RUST_LOG": "info,sqlx=warn",
+    "RUST_BACKTRACE": "1",
+    "CARGO_INCREMENTAL": "1",
+    "SQLX_OFFLINE": "false",
+    "DATABASE_URL": "postgresql://vaultpass:password@localhost:5432/vaultpass_platform",
+    "REDIS_URL": "redis://localhost:6379/0"
+  },
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/sahi,type=bind,consistency=cached"
+  ],
+
+  "workspaceFolder": "/workspaces/sahi",
+
+  "containerEnv": {
+    "CARGO_HOME": "/usr/local/cargo",
+    "RUSTUP_HOME": "/usr/local/rustup"
+  }
+}

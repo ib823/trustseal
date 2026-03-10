@@ -1,0 +1,21 @@
+#!/bin/bash
+# Block pushes containing AI co-authorship in commit messages
+remote="$1"
+url="$2"
+
+while read local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        range="$local_sha"
+    else
+        range="$remote_sha..$local_sha"
+    fi
+    leaked=$(git log "$range" --format="%B" 2>/dev/null | grep -iE "Co-Authored-By:.*(claude|anthropic|ai)" || true)
+    if [ -n "$leaked" ]; then
+        echo "ERROR: Found AI co-authorship in commit messages. Amend before pushing."
+        exit 1
+    fi
+done
+exit 0

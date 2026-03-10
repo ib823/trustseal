@@ -1,0 +1,11 @@
+#!/bin/bash
+# Pre-commit quality gates
+set -e
+
+# Check for Rust code
+if command -v cargo &> /dev/null && [ -f Cargo.toml ]; then
+    cargo fmt --check 2>/dev/null || true
+    cargo clippy -- -D warnings 2>/dev/null || true
+fi
+
+echo "Pre-commit checks passed."

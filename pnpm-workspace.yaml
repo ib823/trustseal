@@ -1,0 +1,9 @@
+packages:
+  - "packages/credential-format"
+  - "packages/did-resolver"
+  - "packages/status-list"
+  - "apps/admin-portal"
+  - "apps/guard-tablet"
+  - "apps/guest-web"
+  - "apps/trustmark-web"
+  - "apps/verify-web"

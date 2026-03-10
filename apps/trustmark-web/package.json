@@ -1,0 +1,11 @@
+{
+  "name": "@sahi/trustmark-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3004",
+    "build": "next build",
+    "lint": "next lint",
+    "test": "echo 'no tests yet'"
+  }
+}

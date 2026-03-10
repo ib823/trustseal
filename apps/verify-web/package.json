@@ -1,0 +1,11 @@
+{
+  "name": "@sahi/verify-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3005",
+    "build": "next build",
+    "lint": "next lint",
+    "test": "echo 'no tests yet'"
+  }
+}
