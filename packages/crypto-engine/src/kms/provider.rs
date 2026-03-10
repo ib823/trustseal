@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 
-use crate::error::CryptoError;
 use super::types::{
-    DestroyConfirmation, KeyAlgorithm, KeyHandle, KeyMetadata, KeyRotationResult,
-    PublicKeyBytes, Signature,
+    DestroyConfirmation, KeyAlgorithm, KeyHandle, KeyMetadata, KeyRotationResult, PublicKeyBytes,
+    Signature,
 };
+use crate::error::CryptoError;
 
 /// Core KMS provider abstraction — the heart of F1.
 ///
@@ -28,11 +28,7 @@ pub trait KmsProvider: Send + Sync {
 
     /// Sign data using a key stored in the KMS.
     /// Returns an error if the key is not in Active state.
-    async fn sign(
-        &self,
-        key_handle: &KeyHandle,
-        data: &[u8],
-    ) -> Result<Signature, CryptoError>;
+    async fn sign(&self, key_handle: &KeyHandle, data: &[u8]) -> Result<Signature, CryptoError>;
 
     /// Verify a signature.
     /// Can be done in software even for HSM-backed keys (only needs public key).
@@ -51,16 +47,10 @@ pub trait KmsProvider: Send + Sync {
 
     /// Rotate a key: generate new key, mark old key as VerifyOnly.
     /// Old key remains valid for verification during the grace period.
-    async fn rotate_key(
-        &self,
-        old_handle: &KeyHandle,
-    ) -> Result<KeyRotationResult, CryptoError>;
+    async fn rotate_key(&self, old_handle: &KeyHandle) -> Result<KeyRotationResult, CryptoError>;
 
     /// List all keys with metadata. Never returns private key material.
-    async fn list_keys(
-        &self,
-        tenant_id: Option<&str>,
-    ) -> Result<Vec<KeyMetadata>, CryptoError>;
+    async fn list_keys(&self, tenant_id: Option<&str>) -> Result<Vec<KeyMetadata>, CryptoError>;
 
     /// Destroy a key (irreversible).
     /// Requires confirmation matching the key handle.
@@ -72,8 +62,5 @@ pub trait KmsProvider: Send + Sync {
     ) -> Result<(), CryptoError>;
 
     /// Get metadata for a specific key.
-    async fn get_key_metadata(
-        &self,
-        key_handle: &KeyHandle,
-    ) -> Result<KeyMetadata, CryptoError>;
+    async fn get_key_metadata(&self, key_handle: &KeyHandle) -> Result<KeyMetadata, CryptoError>;
 }

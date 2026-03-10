@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "packages/sahi-core",
     "packages/crypto-engine",
     "apps/platform-api",
     "apps/issuer-service",

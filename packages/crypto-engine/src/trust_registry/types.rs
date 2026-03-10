@@ -66,11 +66,12 @@ impl TrustRegistry {
         self.entries.iter().any(|entry| {
             entry.issuer_did == issuer_did
                 && entry.status == TrustStatus::Active
-                && entry.credential_types.iter().any(|ct| ct == credential_type)
-                && entry.valid_from <= Utc::now()
                 && entry
-                    .valid_until
-                    .is_none_or(|until| until > Utc::now())
+                    .credential_types
+                    .iter()
+                    .any(|ct| ct == credential_type)
+                && entry.valid_from <= Utc::now()
+                && entry.valid_until.is_none_or(|until| until > Utc::now())
         })
     }
 

@@ -13,11 +13,7 @@ mod state;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{
-    middleware as axum_middleware,
-    routing::get,
-    Router,
-};
+use axum::{middleware as axum_middleware, routing::get, Router};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -40,9 +36,11 @@ async fn main() {
 
     // Initialize tracing (structured JSON in production)
     tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            "platform_api=debug,tower_http=debug,crypto_engine=info".into()
-        }))
+        .with(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "platform_api=debug,tower_http=debug,crypto_engine=info".into()
+            }),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
@@ -66,16 +64,12 @@ async fn main() {
             "/api/v1",
             Router::new()
                 .route("/status", get(routes::health::health_check))
-                .layer(axum_middleware::from_fn(
-                    middleware::tenant::require_tenant,
-                )),
+                .layer(axum_middleware::from_fn(middleware::tenant::require_tenant)),
         )
         // Global middleware (applied to ALL routes, bottom-up execution)
         .layer(axum_middleware::from_fn(extract_tenant))
         .layer(axum_middleware::from_fn(inject_request_id))
-        .layer(axum_middleware::from_fn(
-            middleware::rate_limit::rate_limit,
-        ))
+        .layer(axum_middleware::from_fn(middleware::rate_limit::rate_limit))
         .layer(axum::Extension(rate_limiter))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())

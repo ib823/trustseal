@@ -4,18 +4,21 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use ring::rand::SystemRandom;
-use ring::signature::{self, Ed25519KeyPair, EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_ASN1, ECDSA_P256_SHA256_ASN1_SIGNING};
+use ring::signature::{
+    self, EcdsaKeyPair, Ed25519KeyPair, KeyPair, ECDSA_P256_SHA256_ASN1,
+    ECDSA_P256_SHA256_ASN1_SIGNING,
+};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use zeroize::Zeroize;
 
-use crate::error::{CryptoError, ErrorCode};
 use super::audit::{KmsAuditEvent, KmsOperation};
 use super::provider::KmsProvider;
 use super::types::{
-    DestroyConfirmation, KeyAlgorithm, KeyHandle, KeyMetadata, KeyRotationResult,
-    KeyState, PublicKeyBytes, Signature,
+    DestroyConfirmation, KeyAlgorithm, KeyHandle, KeyMetadata, KeyRotationResult, KeyState,
+    PublicKeyBytes, Signature,
 };
+use crate::error::{CryptoError, ErrorCode};
 
 /// In-memory key material. Zeroized on drop.
 #[derive(Zeroize)]
@@ -72,17 +75,19 @@ impl SoftwareKmsProvider {
     }
 
     fn get_ed25519_pair(pkcs8: &[u8]) -> Result<Ed25519KeyPair, CryptoError> {
-        Ed25519KeyPair::from_pkcs8(pkcs8)
-            .map_err(|e| CryptoError::kms(ErrorCode::SignFailed, format!("Ed25519 key parse error: {e}")))
+        Ed25519KeyPair::from_pkcs8(pkcs8).map_err(|e| {
+            CryptoError::kms(
+                ErrorCode::SignFailed,
+                format!("Ed25519 key parse error: {e}"),
+            )
+        })
     }
 
     fn get_ecdsa_pair(pkcs8: &[u8]) -> Result<EcdsaKeyPair, CryptoError> {
-        EcdsaKeyPair::from_pkcs8(
-            &ECDSA_P256_SHA256_ASN1_SIGNING,
-            pkcs8,
-            &SystemRandom::new(),
-        )
-        .map_err(|e| CryptoError::kms(ErrorCode::SignFailed, format!("ECDSA key parse error: {e}")))
+        EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8, &SystemRandom::new())
+            .map_err(|e| {
+                CryptoError::kms(ErrorCode::SignFailed, format!("ECDSA key parse error: {e}"))
+            })
     }
 }
 
@@ -104,22 +109,23 @@ impl KmsProvider for SoftwareKmsProvider {
 
         let pkcs8_der = match algorithm {
             KeyAlgorithm::Ed25519 => {
-                let pkcs8 = Ed25519KeyPair::generate_pkcs8(&self.rng)
-                    .map_err(|e| CryptoError::kms(
+                let pkcs8 = Ed25519KeyPair::generate_pkcs8(&self.rng).map_err(|e| {
+                    CryptoError::kms(
                         ErrorCode::KeyGenerationFailed,
                         format!("Ed25519 keygen failed: {e}"),
-                    ))?;
+                    )
+                })?;
                 pkcs8.as_ref().to_vec()
             }
             KeyAlgorithm::EcdsaP256 => {
-                let pkcs8 = EcdsaKeyPair::generate_pkcs8(
-                    &ECDSA_P256_SHA256_ASN1_SIGNING,
-                    &self.rng,
-                )
-                .map_err(|e| CryptoError::kms(
-                    ErrorCode::KeyGenerationFailed,
-                    format!("ECDSA P-256 keygen failed: {e}"),
-                ))?;
+                let pkcs8 =
+                    EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &self.rng)
+                        .map_err(|e| {
+                            CryptoError::kms(
+                                ErrorCode::KeyGenerationFailed,
+                                format!("ECDSA P-256 keygen failed: {e}"),
+                            )
+                        })?;
                 pkcs8.as_ref().to_vec()
             }
         };
@@ -157,20 +163,22 @@ impl KmsProvider for SoftwareKmsProvider {
         Ok(handle)
     }
 
-    async fn sign(
-        &self,
-        key_handle: &KeyHandle,
-        data: &[u8],
-    ) -> Result<Signature, CryptoError> {
+    async fn sign(&self, key_handle: &KeyHandle, data: &[u8]) -> Result<Signature, CryptoError> {
         let keys = self.keys.read().await;
         let entry = keys.get(&key_handle.id).ok_or_else(|| {
-            CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", key_handle.id))
+            CryptoError::kms(
+                ErrorCode::KeyNotFound,
+                format!("Key {} not found", key_handle.id),
+            )
         })?;
 
         if entry.metadata.state != KeyState::Active {
             return Err(CryptoError::kms(
                 ErrorCode::InvalidKeyState,
-                format!("Key {} is in {} state, signing requires Active", key_handle.id, entry.metadata.state),
+                format!(
+                    "Key {} is in {} state, signing requires Active",
+                    key_handle.id, entry.metadata.state
+                ),
             ));
         }
 
@@ -186,7 +194,9 @@ impl KmsProvider for SoftwareKmsProvider {
             KeyAlgorithm::EcdsaP256 => {
                 let pair = Self::get_ecdsa_pair(&material.pkcs8_der)?;
                 pair.sign(&self.rng, data)
-                    .map_err(|e| CryptoError::kms(ErrorCode::SignFailed, format!("ECDSA sign failed: {e}")))?
+                    .map_err(|e| {
+                        CryptoError::kms(ErrorCode::SignFailed, format!("ECDSA sign failed: {e}"))
+                    })?
                     .as_ref()
                     .to_vec()
             }
@@ -217,7 +227,10 @@ impl KmsProvider for SoftwareKmsProvider {
     ) -> Result<bool, CryptoError> {
         let keys = self.keys.read().await;
         let entry = keys.get(&key_handle.id).ok_or_else(|| {
-            CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", key_handle.id))
+            CryptoError::kms(
+                ErrorCode::KeyNotFound,
+                format!("Key {} not found", key_handle.id),
+            )
         })?;
 
         // Verification allowed in Active and VerifyOnly states
@@ -226,7 +239,10 @@ impl KmsProvider for SoftwareKmsProvider {
         {
             return Err(CryptoError::kms(
                 ErrorCode::InvalidKeyState,
-                format!("Key {} is {}, cannot verify", key_handle.id, entry.metadata.state),
+                format!(
+                    "Key {} is {}, cannot verify",
+                    key_handle.id, entry.metadata.state
+                ),
             ));
         }
 
@@ -238,19 +254,15 @@ impl KmsProvider for SoftwareKmsProvider {
             KeyAlgorithm::Ed25519 => {
                 let pair = Self::get_ed25519_pair(&material.pkcs8_der)?;
                 let public_key = pair.public_key();
-                let peer_pk = signature::UnparsedPublicKey::new(
-                    &signature::ED25519,
-                    public_key.as_ref(),
-                );
+                let peer_pk =
+                    signature::UnparsedPublicKey::new(&signature::ED25519, public_key.as_ref());
                 peer_pk.verify(data, &sig.bytes).is_ok()
             }
             KeyAlgorithm::EcdsaP256 => {
                 let pair = Self::get_ecdsa_pair(&material.pkcs8_der)?;
                 let public_key = pair.public_key();
-                let peer_pk = signature::UnparsedPublicKey::new(
-                    &ECDSA_P256_SHA256_ASN1,
-                    public_key.as_ref(),
-                );
+                let peer_pk =
+                    signature::UnparsedPublicKey::new(&ECDSA_P256_SHA256_ASN1, public_key.as_ref());
                 peer_pk.verify(data, &sig.bytes).is_ok()
             }
         };
@@ -275,7 +287,10 @@ impl KmsProvider for SoftwareKmsProvider {
     ) -> Result<PublicKeyBytes, CryptoError> {
         let keys = self.keys.read().await;
         let entry = keys.get(&key_handle.id).ok_or_else(|| {
-            CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", key_handle.id))
+            CryptoError::kms(
+                ErrorCode::KeyNotFound,
+                format!("Key {} not found", key_handle.id),
+            )
         })?;
 
         let material = entry.material.as_ref().ok_or_else(|| {
@@ -293,14 +308,12 @@ impl KmsProvider for SoftwareKmsProvider {
             }
         };
 
-        self.emit_audit(
-            KmsAuditEvent::success(
-                KmsOperation::ExportPublicKey,
-                Some(key_handle),
-                "SYSTEM",
-                entry.metadata.tenant_id.as_deref(),
-            ),
-        )
+        self.emit_audit(KmsAuditEvent::success(
+            KmsOperation::ExportPublicKey,
+            Some(key_handle),
+            "SYSTEM",
+            entry.metadata.tenant_id.as_deref(),
+        ))
         .await;
 
         Ok(PublicKeyBytes {
@@ -309,21 +322,24 @@ impl KmsProvider for SoftwareKmsProvider {
         })
     }
 
-    async fn rotate_key(
-        &self,
-        old_handle: &KeyHandle,
-    ) -> Result<KeyRotationResult, CryptoError> {
+    async fn rotate_key(&self, old_handle: &KeyHandle) -> Result<KeyRotationResult, CryptoError> {
         // Read old key metadata first
         let (algorithm, label, tenant_id) = {
             let keys = self.keys.read().await;
             let entry = keys.get(&old_handle.id).ok_or_else(|| {
-                CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", old_handle.id))
+                CryptoError::kms(
+                    ErrorCode::KeyNotFound,
+                    format!("Key {} not found", old_handle.id),
+                )
             })?;
 
             if entry.metadata.state != KeyState::Active {
                 return Err(CryptoError::kms(
                     ErrorCode::InvalidKeyState,
-                    format!("Key {} is {}, rotation requires Active", old_handle.id, entry.metadata.state),
+                    format!(
+                        "Key {} is {}, rotation requires Active",
+                        old_handle.id, entry.metadata.state
+                    ),
                 ));
             }
 
@@ -375,10 +391,7 @@ impl KmsProvider for SoftwareKmsProvider {
         })
     }
 
-    async fn list_keys(
-        &self,
-        tenant_id: Option<&str>,
-    ) -> Result<Vec<KeyMetadata>, CryptoError> {
+    async fn list_keys(&self, tenant_id: Option<&str>) -> Result<Vec<KeyMetadata>, CryptoError> {
         let keys = self.keys.read().await;
         let result: Vec<KeyMetadata> = keys
             .values()
@@ -389,9 +402,12 @@ impl KmsProvider for SoftwareKmsProvider {
             .map(|entry| entry.metadata.clone())
             .collect();
 
-        self.emit_audit(
-            KmsAuditEvent::success(KmsOperation::ListKeys, None, "SYSTEM", tenant_id),
-        )
+        self.emit_audit(KmsAuditEvent::success(
+            KmsOperation::ListKeys,
+            None,
+            "SYSTEM",
+            tenant_id,
+        ))
         .await;
 
         Ok(result)
@@ -403,15 +419,13 @@ impl KmsProvider for SoftwareKmsProvider {
         confirmation: DestroyConfirmation,
     ) -> Result<(), CryptoError> {
         if !confirmation.is_valid_for(key_handle) {
-            self.emit_audit(
-                KmsAuditEvent::failure(
-                    KmsOperation::DestroyKey,
-                    Some(key_handle),
-                    &confirmation.actor_id,
-                    None,
-                    ErrorCode::DestroyConfirmationFailed.code(),
-                ),
-            )
+            self.emit_audit(KmsAuditEvent::failure(
+                KmsOperation::DestroyKey,
+                Some(key_handle),
+                &confirmation.actor_id,
+                None,
+                ErrorCode::DestroyConfirmationFailed.code(),
+            ))
             .await;
 
             return Err(CryptoError::kms(
@@ -422,7 +436,10 @@ impl KmsProvider for SoftwareKmsProvider {
 
         let mut keys = self.keys.write().await;
         let entry = keys.get_mut(&key_handle.id).ok_or_else(|| {
-            CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", key_handle.id))
+            CryptoError::kms(
+                ErrorCode::KeyNotFound,
+                format!("Key {} not found", key_handle.id),
+            )
         })?;
 
         // Zeroize and remove key material
@@ -433,27 +450,25 @@ impl KmsProvider for SoftwareKmsProvider {
         let tenant_id = entry.metadata.tenant_id.clone();
         drop(keys);
 
-        self.emit_audit(
-            KmsAuditEvent::success(
-                KmsOperation::DestroyKey,
-                Some(key_handle),
-                &confirmation.actor_id,
-                tenant_id.as_deref(),
-            ),
-        )
+        self.emit_audit(KmsAuditEvent::success(
+            KmsOperation::DestroyKey,
+            Some(key_handle),
+            &confirmation.actor_id,
+            tenant_id.as_deref(),
+        ))
         .await;
 
         warn!(key_id = %key_handle.id, actor = %confirmation.actor_id, "Key DESTROYED — irreversible");
         Ok(())
     }
 
-    async fn get_key_metadata(
-        &self,
-        key_handle: &KeyHandle,
-    ) -> Result<KeyMetadata, CryptoError> {
+    async fn get_key_metadata(&self, key_handle: &KeyHandle) -> Result<KeyMetadata, CryptoError> {
         let keys = self.keys.read().await;
         let entry = keys.get(&key_handle.id).ok_or_else(|| {
-            CryptoError::kms(ErrorCode::KeyNotFound, format!("Key {} not found", key_handle.id))
+            CryptoError::kms(
+                ErrorCode::KeyNotFound,
+                format!("Key {} not found", key_handle.id),
+            )
         })?;
         Ok(entry.metadata.clone())
     }

@@ -28,7 +28,11 @@ fn append_multiple_entries_monotonic_sequence() {
     let mut tree = MerkleTree::new();
 
     for i in 0..10 {
-        let entry = tree.append(EventType::GateDecision, format!("event-{i}").as_bytes(), None);
+        let entry = tree.append(
+            EventType::GateDecision,
+            format!("event-{i}").as_bytes(),
+            None,
+        );
         assert_eq!(entry.sequence, i);
     }
 
@@ -41,7 +45,11 @@ fn each_append_changes_root() {
     let mut roots = Vec::new();
 
     for i in 0..5 {
-        tree.append(EventType::CredentialIssue, format!("cred-{i}").as_bytes(), None);
+        tree.append(
+            EventType::CredentialIssue,
+            format!("cred-{i}").as_bytes(),
+            None,
+        );
         roots.push(tree.root());
     }
 
@@ -49,7 +57,10 @@ fn each_append_changes_root() {
     for (i, r) in roots.iter().enumerate() {
         for (j, s) in roots.iter().enumerate() {
             if i != j {
-                assert_ne!(r, s, "Root at index {i} should differ from root at index {j}");
+                assert_ne!(
+                    r, s,
+                    "Root at index {i} should differ from root at index {j}"
+                );
             }
         }
     }
@@ -112,7 +123,11 @@ fn inclusion_proof_two_leaves() {
 fn inclusion_proof_power_of_two_leaves() {
     let mut tree = MerkleTree::new();
     for i in 0..8 {
-        tree.append(EventType::GateDecision, format!("leaf-{i}").as_bytes(), None);
+        tree.append(
+            EventType::GateDecision,
+            format!("leaf-{i}").as_bytes(),
+            None,
+        );
     }
 
     for i in 0..8 {
@@ -128,7 +143,11 @@ fn inclusion_proof_power_of_two_leaves() {
 fn inclusion_proof_non_power_of_two_leaves() {
     let mut tree = MerkleTree::new();
     for i in 0..5 {
-        tree.append(EventType::CredentialIssue, format!("leaf-{i}").as_bytes(), None);
+        tree.append(
+            EventType::CredentialIssue,
+            format!("leaf-{i}").as_bytes(),
+            None,
+        );
     }
 
     for i in 0..5 {
@@ -144,7 +163,11 @@ fn inclusion_proof_non_power_of_two_leaves() {
 fn inclusion_proof_large_tree() {
     let mut tree = MerkleTree::new();
     for i in 0..100 {
-        tree.append(EventType::GateDecision, format!("event-{i}").as_bytes(), None);
+        tree.append(
+            EventType::GateDecision,
+            format!("event-{i}").as_bytes(),
+            None,
+        );
     }
 
     // Verify first, middle, and last
@@ -177,7 +200,10 @@ fn tampered_proof_fails_verification() {
 
     // Tamper with the leaf hash
     proof.leaf_hash[0] ^= 0xFF;
-    assert!(!MerkleTree::verify_inclusion(&proof), "Tampered leaf should fail verification");
+    assert!(
+        !MerkleTree::verify_inclusion(&proof),
+        "Tampered leaf should fail verification"
+    );
 }
 
 #[test]
@@ -193,7 +219,10 @@ fn tampered_proof_hash_fails_verification() {
     if let Some(h) = proof.proof_hashes.first_mut() {
         h[0] ^= 0xFF;
     }
-    assert!(!MerkleTree::verify_inclusion(&proof), "Tampered proof hash should fail");
+    assert!(
+        !MerkleTree::verify_inclusion(&proof),
+        "Tampered proof hash should fail"
+    );
 }
 
 // ─── CONSISTENCY PROOFS ─────────────────────────────────────────────────
@@ -301,7 +330,11 @@ fn order_matters() {
     tree2.append(EventType::KmsOp, b"second", None);
     tree2.append(EventType::KmsOp, b"first", None);
 
-    assert_ne!(tree1.root(), tree2.root(), "Different order must produce different root");
+    assert_ne!(
+        tree1.root(),
+        tree2.root(),
+        "Different order must produce different root"
+    );
 }
 
 // ─── EVENT TYPES ────────────────────────────────────────────────────────

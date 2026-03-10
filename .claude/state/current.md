@@ -8,7 +8,7 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. 48 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. 66 tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational. Error codes, ULID factory, time utilities, and STRIDE threat model in place.
 
 **Next action:** Begin Phase 1 — VaultPass MVP (VP-1: Crypto Engine SD-JWT operations).
 
@@ -24,13 +24,13 @@
 - [x] F6 — Trust Registry (TrustRegistry, TrustEntry, authorization checks)
 
 **Phase 0 prerequisites before Phase 1 starts:**
-- [ ] Error Code Registry implemented (Appendix E)
-- [ ] ULID convention enforced (Appendix G)
-- [ ] i18n infrastructure in place (rust-i18n + next-intl)
-- [ ] Time format enforcement (all timestamps as `timestamptz` / RFC 3339)
-- [ ] STRIDE Threat Model document drafted
+- [x] Error Code Registry implemented (Appendix E) ✓ 37 codes across 10 domains in sahi-core
+- [x] ULID convention enforced (Appendix G) ✓ TypedUlid with 17 prefixes, parse/validate/serialize
+- [ ] i18n infrastructure in place (rust-i18n + next-intl) — deferred to Phase 1 UI work
+- [x] Time format enforcement (all timestamps as `timestamptz` / RFC 3339) ✓ sahi-core::time module
+- [x] STRIDE Threat Model document drafted ✓ docs/STRIDE_THREAT_MODEL.md
 - [x] docker-compose.yml working (Postgres 16, Redis 7, Mosquitto 2)
-- [ ] CI/CD pipeline running (lint, test, build gates)
+- [x] CI/CD pipeline configured (GitHub Actions: fmt, clippy, test, audit, integration, security)
 
 ---
 
@@ -84,3 +84,4 @@
 - 2026-03-10: F5 (CI/CD) COMPLETE — GitHub Actions workflow (rust, typescript, integration, security jobs).
 - 2026-03-10: F6 (Trust Registry) COMPLETE — TrustRegistry data model, authorization checks, issuer revocation.
 - 2026-03-10: **PHASE 0 COMPLETE** — All foundation modules operational.
+- 2026-03-10: Phase 0 prerequisites — sahi-core crate (error codes, ULID factory, time utils), STRIDE threat model. 66 tests total.

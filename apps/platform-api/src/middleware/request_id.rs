@@ -11,12 +11,10 @@ pub async fn inject_request_id(mut request: Request, next: Next) -> Response {
 
     let mut response = next.run(request).await;
 
-    response
-        .headers_mut()
-        .insert(
-            "x-request-id",
-            request_id.parse().expect("ULID is always valid ASCII"),
-        );
+    response.headers_mut().insert(
+        "x-request-id",
+        request_id.parse().expect("ULID is always valid ASCII"),
+    );
 
     response
 }

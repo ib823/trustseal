@@ -217,7 +217,10 @@ async fn rotated_key_can_still_verify() {
 
     // Old key can still verify (VerifyOnly state)
     let valid = kms.verify(&handle, data, &sig).await.unwrap();
-    assert!(valid, "VerifyOnly key must still verify existing signatures");
+    assert!(
+        valid,
+        "VerifyOnly key must still verify existing signatures"
+    );
 }
 
 #[tokio::test]
@@ -413,7 +416,11 @@ async fn audit_events_emitted_for_all_operations() {
     let events = kms.drain_audit_events().await;
 
     // generate (original) + sign + verify + export + list + generate (rotation) + rotate
-    assert!(events.len() >= 7, "Expected at least 7 audit events, got {}", events.len());
+    assert!(
+        events.len() >= 7,
+        "Expected at least 7 audit events, got {}",
+        events.len()
+    );
 
     // All events should be successful
     assert!(events.iter().all(|e| e.success));
@@ -442,10 +449,7 @@ async fn audit_event_on_failure() {
     let failure_events: Vec<_> = events.iter().filter(|e| !e.success).collect();
 
     assert_eq!(failure_events.len(), 1);
-    assert_eq!(
-        failure_events[0].error_code.as_deref(),
-        Some("SAHI_2010")
-    );
+    assert_eq!(failure_events[0].error_code.as_deref(), Some("SAHI_2010"));
 }
 
 // ─── CONCURRENT ACCESS ─────────────────────────────────────────────────

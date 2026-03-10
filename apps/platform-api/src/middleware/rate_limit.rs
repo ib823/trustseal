@@ -106,15 +106,9 @@ impl RateLimiter {
 }
 
 /// Rate limiting middleware. Uses IP address as the rate limit key.
-pub async fn rate_limit(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn rate_limit(request: Request, next: Next) -> Response {
     // Extract rate limiter from extensions (set by the router layer)
-    let limiter = request
-        .extensions()
-        .get::<RateLimiter>()
-        .cloned();
+    let limiter = request.extensions().get::<RateLimiter>().cloned();
 
     let Some(limiter) = limiter else {
         // No rate limiter configured — pass through

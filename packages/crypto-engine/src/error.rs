@@ -53,10 +53,7 @@ impl fmt::Display for ErrorCode {
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {
     #[error("[{code}] KMS error: {message}")]
-    Kms {
-        code: ErrorCode,
-        message: String,
-    },
+    Kms { code: ErrorCode, message: String },
 
     #[error("[SAHI_9001] Internal error: {0}")]
     Internal(String),

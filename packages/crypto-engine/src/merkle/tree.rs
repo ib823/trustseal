@@ -1,8 +1,8 @@
-use ring::digest::{digest, SHA256};
 use chrono::Utc;
+use ring::digest::{digest, SHA256};
 
-use crate::error::{CryptoError, ErrorCode};
 use super::types::{ConsistencyProof, EventType, Hash256, InclusionProof, MerkleLogEntry};
+use crate::error::{CryptoError, ErrorCode};
 
 /// Domain separation prefix for leaf hashes (prevents second-preimage attacks).
 const LEAF_PREFIX: u8 = 0x00;
@@ -114,7 +114,10 @@ impl MerkleTree {
         if idx >= self.leaves.len() {
             return Err(CryptoError::kms(
                 ErrorCode::KeyNotFound,
-                format!("Leaf index {leaf_index} out of range (tree size: {})", self.leaves.len()),
+                format!(
+                    "Leaf index {leaf_index} out of range (tree size: {})",
+                    self.leaves.len()
+                ),
             ));
         }
 
@@ -148,9 +151,10 @@ impl MerkleTree {
     #[allow(clippy::cast_possible_truncation)]
     pub fn consistency_proof(&self, old_size: u64) -> Result<ConsistencyProof, CryptoError> {
         if old_size > self.size() {
-            return Err(CryptoError::Internal(
-                format!("old_size {old_size} > current size {}", self.size()),
-            ));
+            return Err(CryptoError::Internal(format!(
+                "old_size {old_size} > current size {}",
+                self.size()
+            )));
         }
 
         if old_size == 0 {
