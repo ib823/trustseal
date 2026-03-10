@@ -9,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
+use sahi_core::error::{ErrorCode, ErrorResponse, SahiError};
 use tokio::sync::Mutex;
 
 /// Rate limiter tier configuration.
@@ -128,16 +128,15 @@ pub async fn rate_limit(request: Request, next: Next) -> Response {
         Ok(()) => next.run(request).await,
         Err(retry_after) => {
             let retry_secs = retry_after.as_secs().max(1);
+            let error = SahiError::new(
+                ErrorCode::RateLimitExceeded,
+                "Rate limit exceeded",
+                format!("Retry after {retry_secs} seconds"),
+            );
             (
                 StatusCode::TOO_MANY_REQUESTS,
                 [("retry-after", retry_secs.to_string())],
-                Json(json!({
-                    "error": {
-                        "code": "SAHI_1200",
-                        "message": "Rate limit exceeded",
-                        "action": format!("Retry after {} seconds", retry_secs)
-                    }
-                })),
+                Json(ErrorResponse::from(error)),
             )
                 .into_response()
         }

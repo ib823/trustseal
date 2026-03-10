@@ -24,6 +24,10 @@ pub enum ErrorCode {
     /// SAHI_1102: Row-level security violation
     RlsViolation,
 
+    // ── Rate Limiting (1200-1299) ─────────────────────────────────────────
+    /// SAHI_1200: Rate limit exceeded
+    RateLimitExceeded,
+
     // ── KMS (2000-2099) ─────────────────────────────────────────────────
     /// SAHI_2001: Key not found in KMS
     KeyNotFound,
@@ -116,6 +120,8 @@ impl ErrorCode {
             Self::TenantMismatch => "SAHI_1100",
             Self::InsufficientRole => "SAHI_1101",
             Self::RlsViolation => "SAHI_1102",
+            // Rate Limiting
+            Self::RateLimitExceeded => "SAHI_1200",
             // KMS
             Self::KeyNotFound => "SAHI_2001",
             Self::SignFailed => "SAHI_2002",
@@ -164,6 +170,7 @@ impl ErrorCode {
         match self {
             Self::JwtExpired | Self::InvalidSignature | Self::WebAuthnFailed => "Authentication",
             Self::TenantMismatch | Self::InsufficientRole | Self::RlsViolation => "Authorization",
+            Self::RateLimitExceeded => "RateLimiting",
             Self::KeyNotFound
             | Self::SignFailed
             | Self::ProviderUnavailable
@@ -289,6 +296,7 @@ mod tests {
             ErrorCode::TenantMismatch,
             ErrorCode::InsufficientRole,
             ErrorCode::RlsViolation,
+            ErrorCode::RateLimitExceeded,
             ErrorCode::KeyNotFound,
             ErrorCode::SignFailed,
             ErrorCode::ProviderUnavailable,
@@ -330,13 +338,14 @@ mod tests {
                 code.code()
             );
         }
-        assert_eq!(seen.len(), 37, "Expected 37 unique error codes");
+        assert_eq!(seen.len(), 38, "Expected 38 unique error codes");
     }
 
     #[test]
     fn error_domains_are_correct() {
         assert_eq!(ErrorCode::JwtExpired.domain(), "Authentication");
         assert_eq!(ErrorCode::TenantMismatch.domain(), "Authorization");
+        assert_eq!(ErrorCode::RateLimitExceeded.domain(), "RateLimiting");
         assert_eq!(ErrorCode::KeyNotFound.domain(), "KMS");
         assert_eq!(ErrorCode::InvalidSdJwt.domain(), "Credential");
         assert_eq!(ErrorCode::SequenceGap.domain(), "MerkleLog");

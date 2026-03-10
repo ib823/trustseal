@@ -25,7 +25,7 @@
 - [x] F6 — Trust Registry (TrustRegistry, TrustEntry, authorization checks)
 
 **Phase 0 prerequisites before Phase 1 starts:**
-- [x] Error Code Registry implemented (Appendix E) ✓ 37 codes across 10 domains in sahi-core
+- [x] Error Code Registry implemented (Appendix E) ✓ 38 codes across 11 domains in sahi-core
 - [x] ULID convention enforced (Appendix G) ✓ TypedUlid with 17 prefixes, parse/validate/serialize
 - [ ] i18n infrastructure in place (rust-i18n + next-intl) — deferred to Phase 1 UI work
 - [x] Time format enforcement (all timestamps as `timestamptz` / RFC 3339) ✓ sahi-core::time module
@@ -87,3 +87,4 @@
 - 2026-03-10: **PHASE 0 COMPLETE** — All foundation modules operational.
 - 2026-03-10: Phase 0 prerequisites — sahi-core crate (error codes, ULID factory, time utils), STRIDE threat model. 66 tests total.
 - 2026-03-10: VP-1 — SD-JWT module implemented (issuer, holder, verifier with KMS integration). VaultPassCredential types. 81 tests total.
+- 2026-03-10: Fixed SAHI_1200 (RateLimitExceeded) — added to ErrorCode enum, updated rate_limit.rs to use SahiError. 38 error codes, 11 domains.
