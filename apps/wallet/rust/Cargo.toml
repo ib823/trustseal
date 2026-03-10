@@ -1,0 +1,26 @@
+[package]
+name = "vaultpass_wallet_rust"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# Compression for status list
+flate2 = "1.0"
+
+# Base64 encoding
+base64 = "0.22"
+
+# Flutter Rust Bridge (generated code will use this)
+flutter_rust_bridge = "2"
+
+[dev-dependencies]
+# Testing utilities
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

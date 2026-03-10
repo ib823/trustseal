@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VaultPass</string>
+    <string name="hce_service_description">VaultPass Credential Presentation</string>
+    <string name="hce_aid_description">VaultPass NFC</string>
+</resources>
