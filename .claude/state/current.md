@@ -8,10 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6, VP-7, VP-8 COMPLETE.** 390+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 1 COMPLETE.** All VaultPass modules (VP-1 to VP-9) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6, VP-7, VP-8, VP-9 COMPLETE.** 410+ tests passing. Zero clippy warnings. 14 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Current module:** VP-9 — Onboarding + KYC flows (next)
-**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal), VP-7 (Guard Tablet), VP-8 (Guest Web)
+**Current phase:** Phase 2 — VaultPass Hardening (next)
+**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal), VP-7 (Guard Tablet), VP-8 (Guest Web), VP-9 (eKYC)
 
 ---
 
@@ -100,6 +100,8 @@
 - 2026-03-10: VP-6 — Admin Portal COMPLETE. Next.js 14 with App Router. Dashboard (stats, activity, charts, verifier status), Residents (table, CRUD, credential management), Access Logs (filterable table, pagination), Verifiers (grid, status monitoring), Analytics (overview, peak hours, denial reasons, trends), Settings (property, security, notifications, schedule, team). i18n (EN/MS), React Query, Zustand, shadcn/ui. 47 files, build passing.
 - 2026-03-11: VP-7 — Guard Tablet PWA COMPLETE. Next.js 14 PWA for guard stations. 60/40 split-view (visitor queue/status panel). Offline-first with queued actions. Emergency override with biometric auth. Auto-refresh (30s). i18n (EN/MS). 50 files, 35 tests.
 - 2026-03-11: VP-8 — Guest Web Flow COMPLETE. Next.js 14 mobile-first visitor registration. 3-step wizard (info, verify, complete). QR code credential generation. Deep link to wallet. Optional liveness check. i18n (EN/MS). 40 files, 34 tests.
+- 2026-03-11: VP-8 AUDIT — Fixed 2 hardcoded strings (shareText, qrAlt) with i18n keys. EN/MS parity verified (128 lines, 115 strings). All 34 tests passing.
+- 2026-03-11: VP-9 — Onboarding + KYC COMPLETE. eKYC service (MyDigital ID OAuth 2.0 PKCE), identity_verifications table, API routes (initiate, callback, status, bind-did), wallet eKYC service. 19 tests.
 
 ---
 
@@ -138,6 +140,45 @@
 - Stores: step navigation, registration data, invite/credential management
 - Utils: cn, IC validation, passport validation, hash
 - API: invite fetch, registration submit, mock data
+
+---
+
+## VP-9 Completion Summary
+
+**eKYC Service (`apps/platform-api/src/services/ekyc/`):**
+- `mod.rs` — EkycService with initiate, callback, bind_did methods
+- `mydigital_id.rs` — MyDigital ID OAuth 2.0 client (PKCE, token exchange, user info)
+- `pkce.rs` — RFC 7636 PKCE helpers (code verifier, challenge, state)
+- `types.rs` — VerificationStatus, AssuranceLevel (P1/P2/P3), IdentityVerification
+
+**API Routes (`apps/platform-api/src/routes/ekyc.rs`):**
+- `POST /api/v1/ekyc/initiate` — Start verification, return authorization URL
+- `POST /api/v1/ekyc/callback` — Handle OAuth callback, exchange code
+- `GET /api/v1/ekyc/status/{id}` — Get verification status
+- `POST /api/v1/ekyc/bind-did` — Bind DID to verified identity
+
+**Database (`migrations/20260311000001_identity_verifications.sql`):**
+- `identity_verifications` — Status, provider, assurance level, hashed claims, DID binding
+- `oauth_sessions` — PKCE sessions with 10-minute TTL
+- RLS enabled on both tables
+
+**Wallet Integration (`apps/wallet/lib/services/ekyc_service.dart`):**
+- EkycService with Dio HTTP client
+- OAuth flow via url_launcher
+- Verification state management
+- DID binding after key generation
+
+**Security per spec:**
+- PKCE required for all OAuth flows (RFC 7636)
+- No raw PII stored - only SHA-256 hashes
+- Constant-time state comparison
+- OAuth sessions expire after 10 minutes
+
+**Tests (19 passing):**
+- PKCE: generation, verification, uniqueness, known test vector
+- MyDigital ID: URL building, claim processing, normalization
+- eKYC service: initiate, bind DID, error handling
+- API routes: initiate, status, bind DID (valid/invalid)
 
 ---
 
@@ -353,7 +394,7 @@
 - [x] VP-6 — Admin Portal (Next.js) ✓ 47 files
 - [x] VP-7 — Guard Tablet (Next.js PWA) ✓ 50 files, 35 tests
 - [x] VP-8 — Guest Web Flow ✓ 40 files, 34 tests
-- [ ] VP-9 — Onboarding + KYC flows
+- [x] VP-9 — Onboarding + KYC ✓ eKYC service, 19 tests
 
 ---
 
