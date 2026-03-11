@@ -45,7 +45,7 @@ export function Header() {
           <div>
             <h1 className="text-lg font-semibold">{t("header.title")}</h1>
             <p className="text-xs text-muted-foreground">
-              {t("header.checkpoint")} A1
+              {t("header.checkpoint")} {process.env.NEXT_PUBLIC_CHECKPOINT_ID ?? "A1"}
             </p>
           </div>
         </div>
