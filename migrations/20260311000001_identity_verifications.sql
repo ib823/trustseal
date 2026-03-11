@@ -4,7 +4,7 @@
 -- IMPORTANT: No raw PII stored - only verification status and hashed identifiers
 
 CREATE TABLE IF NOT EXISTS identity_verifications (
-    id              TEXT PRIMARY KEY,           -- VRF_ ULID
+    id              TEXT PRIMARY KEY,           -- IDV_ ULID
     tenant_id       TEXT NOT NULL REFERENCES tenants(id),
     user_id         TEXT REFERENCES users(id),  -- nullable for pre-registration
 

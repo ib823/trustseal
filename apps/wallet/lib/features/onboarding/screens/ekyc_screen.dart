@@ -5,13 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router.dart';
 import '../../../core/i18n/app_localizations.dart';
 import '../../../core/theme/sahi_colors.dart';
+import '../../../services/ekyc_service.dart';
 
 /// eKYC verification state.
 enum EkycState { idle, inProgress, success, failed }
 
+/// eKYC service provider.
+final ekycServiceProvider = Provider<EkycService>((ref) => EkycService());
+
 /// eKYC screen.
 ///
-/// Completes identity verification via MyDigital ID.
+/// Completes identity verification via MyDigital ID using OAuth 2.0 PKCE.
 class EkycScreen extends ConsumerStatefulWidget {
   const EkycScreen({super.key});
 
@@ -21,18 +25,42 @@ class EkycScreen extends ConsumerStatefulWidget {
 
 class _EkycScreenState extends ConsumerState<EkycScreen> {
   EkycState _state = EkycState.idle;
+  String? _errorMessage;
 
   Future<void> _startVerification() async {
-    setState(() => _state = EkycState.inProgress);
+    setState(() {
+      _state = EkycState.inProgress;
+      _errorMessage = null;
+    });
 
     try {
-      // TODO: Launch MyDigital ID verification flow
-      // This would typically:
-      // 1. Open MyDigital ID app or web view
-      // 2. User completes face verification
-      // 3. Receive verification result callback
+      final ekycService = ref.read(ekycServiceProvider);
 
-      await Future.delayed(const Duration(seconds: 2)); // Simulated
+      // Step 1: Initiate verification with backend
+      // In production, tenant_id would come from app state
+      final result = await ekycService.initiateVerification(
+        tenantId: 'TNT_default',
+      );
+
+      // Step 2: Open MyDigital ID authorization URL in browser
+      final launched = await ekycService.openAuthorizationUrl(
+        result.authorizationUrl,
+      );
+
+      if (!launched) {
+        throw const EkycException(
+          'Could not open verification page',
+          code: 'SAHI_5001',
+        );
+      }
+
+      // Note: The actual callback will be handled via deep link
+      // when MyDigital ID redirects back to the app.
+      // For now, we simulate success after a delay for development.
+      // In production, the app would listen for the callback URI.
+
+      // Development simulation - remove in production
+      await Future.delayed(const Duration(seconds: 3));
 
       setState(() => _state = EkycState.success);
 
@@ -42,8 +70,16 @@ class _EkycScreenState extends ConsumerState<EkycScreen> {
       if (mounted) {
         context.go(Routes.keyGeneration);
       }
+    } on EkycException catch (e) {
+      setState(() {
+        _state = EkycState.failed;
+        _errorMessage = e.message;
+      });
     } catch (e) {
-      setState(() => _state = EkycState.failed);
+      setState(() {
+        _state = EkycState.failed;
+        _errorMessage = e.toString();
+      });
     }
   }
 
@@ -85,6 +121,18 @@ class _EkycScreenState extends ConsumerState<EkycScreen> {
                     ),
                 textAlign: TextAlign.center,
               ),
+
+              // Error message
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: SahiColors.signalError,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
 
               const Spacer(flex: 2),
 
