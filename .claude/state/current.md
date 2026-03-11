@@ -8,10 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6 COMPLETE.** 320+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6, VP-7 COMPLETE.** 355+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Current module:** VP-7 — Guard Tablet (Next.js PWA) (next)
-**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal)
+**Current module:** VP-8 — Guest Web Flow (next)
+**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal), VP-7 (Guard Tablet)
 
 ---
 
@@ -98,6 +98,40 @@
 - 2026-03-10: VP-4 AUDIT — Fixed 3 hardcoded UI strings (scanning_or, scanning_again, access_not_authorized) with EN/MS i18n. Fixed Rust clippy warnings (unused params, pedantic). All 230 tests passing. Crypto FFI integration deferred (requires flutter_rust_bridge_codegen).
 - 2026-03-10: VP-5 — Edge Verifier (Raspberry Pi) COMPLETE. Rust firmware: BLE (GATT server, advertiser, protocol), NFC (PC/SC, APDU, NDEF), crypto (SD-JWT, DID resolver), policy (rules engine, offline mode), revocation (status list cache, MQTT sync), audit (SQLite append-only), hardware (GPIO, LED, buzzer, display, tamper). 90 tests, fail-closed security, feature flags for simulation/production.
 - 2026-03-10: VP-6 — Admin Portal COMPLETE. Next.js 14 with App Router. Dashboard (stats, activity, charts, verifier status), Residents (table, CRUD, credential management), Access Logs (filterable table, pagination), Verifiers (grid, status monitoring), Analytics (overview, peak hours, denial reasons, trends), Settings (property, security, notifications, schedule, team). i18n (EN/MS), React Query, Zustand, shadcn/ui. 47 files, build passing.
+- 2026-03-11: VP-7 — Guard Tablet PWA COMPLETE. Next.js 14 PWA for guard stations. 60/40 split-view (visitor queue/status panel). Offline-first with queued actions. Emergency override with biometric auth. Auto-refresh (30s). i18n (EN/MS). 50 files, 35 tests.
+
+---
+
+## VP-7 Completion Summary
+
+**Guard Tablet Structure (`apps/guard-tablet/src/`):**
+- `app/` — Next.js 14 App Router, root page with split-view layout
+- `components/header.tsx` — Checkpoint info, online status, last sync, language switcher
+- `components/offline-indicator.tsx` — Offline banner with queue status
+- `components/visitor/` — VisitorQueue (list with filters/sort), VisitorDetailDialog (actions), StatusPanel (system status, queued actions, recent activity)
+- `components/override/` — OverrideDialog (biometric auth, reason selection)
+- `components/ui/` — Button, Card, Badge, Dialog, Select (shadcn/ui, touch-optimized)
+- `lib/stores/` — visitor-store (visitors, fetch, update), offline-store (queue, sync), override-store (target)
+- `lib/api/` — client.ts, visitors.ts (with mock data)
+- `hooks/` — use-visitors, use-offline, use-override
+- `i18n/` — config, request, messages (EN/MS with 100+ strings)
+
+**PWA Features:**
+- Fullscreen display with landscape orientation
+- Service Worker with next-pwa (register, skipWaiting)
+- Offline action queue with persistence (Zustand persist)
+- Auto-sync when connection restored
+
+**Design System per spec:**
+- Font: Plus Jakarta Sans (primary), JetBrains Mono (IDs)
+- Colors: 95% slate monochrome + signal colors (green-500, amber-500, red-500)
+- Touch targets: min 48x48dp (h-12 default buttons)
+- Dark theme only (slate-950 background)
+
+**Tests (35 passing):**
+- Stores: visitor state, offline queue, override target
+- API: client methods, visitors API, mock data structure
+- Utils: cn class merging, tailwind overrides
 
 ---
 
@@ -278,7 +312,7 @@
 - [x] VP-4 — Wallet App (Flutter) ✓ 42 files
 - [x] VP-5 — Edge Verifier (Raspberry Pi) ✓ 30 files, 90 tests
 - [x] VP-6 — Admin Portal (Next.js) ✓ 47 files
-- [ ] VP-7 — Guard Tablet (Next.js PWA)
+- [x] VP-7 — Guard Tablet (Next.js PWA) ✓ 50 files, 35 tests
 - [ ] VP-8 — Guest Web Flow
 - [ ] VP-9 — Onboarding + KYC flows
 

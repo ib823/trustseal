@@ -1,0 +1,136 @@
+{
+  "common": {
+    "loading": "Memuatkan...",
+    "error": "Ralat",
+    "retry": "Cuba Semula",
+    "cancel": "Batal",
+    "confirm": "Sahkan",
+    "close": "Tutup",
+    "search": "Cari",
+    "filter": "Tapis",
+    "all": "Semua",
+    "refresh": "Muat Semula",
+    "online": "Dalam Talian",
+    "offline": "Luar Talian",
+    "syncing": "Menyegerakkan",
+    "pending": "Menunggu",
+    "success": "Berjaya",
+    "failed": "Gagal"
+  },
+  "header": {
+    "title": "Stesen Pengawal",
+    "checkpoint": "Pusat Pemeriksaan",
+    "lastSync": "Segerak terakhir",
+    "never": "Tidak pernah",
+    "secondsAgo": "{seconds}s lalu",
+    "minutesAgo": "{minutes}m lalu",
+    "language": "Bahasa"
+  },
+  "visitor": {
+    "queue": "Barisan Pelawat",
+    "queueEmpty": "Tiada pelawat dalam barisan",
+    "queueEmptyDescription": "Pelawat baharu akan muncul di sini apabila mereka tiba",
+    "total": "Jumlah",
+    "pending": "Menunggu",
+    "verified": "Disahkan",
+    "denied": "Ditolak",
+    "status": {
+      "pending": "Menunggu",
+      "verified": "Disahkan",
+      "denied": "Ditolak"
+    },
+    "credentialType": {
+      "VisitorPass": "Pas Pelawat",
+      "ContractorBadge": "Lencana Kontraktor",
+      "EmergencyAccess": "Akses Kecemasan"
+    },
+    "details": "Butiran Pelawat",
+    "name": "Nama",
+    "idHash": "Hash ID",
+    "purpose": "Tujuan",
+    "host": "Hos",
+    "unit": "Unit",
+    "credential": "Kelayakan",
+    "arrived": "Tiba",
+    "expires": "Tamat Tempoh",
+    "noExpiry": "Tiada tamat tempoh",
+    "verify": "Sahkan Kemasukan",
+    "deny": "Tolak Kemasukan",
+    "verifying": "Mengesahkan...",
+    "denying": "Menolak...",
+    "entryGranted": "Kemasukan dibenarkan",
+    "entryDenied": "Kemasukan ditolak",
+    "verificationFailed": "Pengesahan gagal. Sila cuba semula.",
+    "filter": {
+      "all": "Semua Pelawat",
+      "pending": "Menunggu Sahaja",
+      "verified": "Disahkan Sahaja",
+      "denied": "Ditolak Sahaja"
+    },
+    "sort": {
+      "newest": "Terbaru Dahulu",
+      "oldest": "Terlama Dahulu",
+      "name": "Mengikut Nama"
+    }
+  },
+  "status": {
+    "panel": "Panel Status",
+    "systemStatus": "Status Sistem",
+    "apiConnection": "Sambungan API",
+    "connected": "Bersambung",
+    "disconnected": "Terputus",
+    "bleScanner": "Pengimbas BLE",
+    "active": "Aktif",
+    "inactive": "Tidak Aktif",
+    "nfcReader": "Pembaca NFC",
+    "ready": "Sedia",
+    "notAvailable": "Tidak Tersedia",
+    "queuedActions": "Tindakan Beratur",
+    "noQueuedActions": "Tiada tindakan beratur",
+    "action": {
+      "verify": "Sahkan",
+      "deny": "Tolak",
+      "override": "Limpah"
+    },
+    "recentActivity": "Aktiviti Terkini",
+    "noActivity": "Tiada aktiviti terkini",
+    "activity": {
+      "verified": "Kemasukan disahkan untuk {name}",
+      "denied": "Kemasukan ditolak untuk {name}",
+      "override": "Limpah dibenarkan untuk {name}"
+    }
+  },
+  "override": {
+    "title": "Limpah Kecemasan",
+    "description": "Limpah kecemasan memerlukan pengesahan biometrik dan akan direkodkan untuk tujuan audit.",
+    "reason": "Sebab Limpah",
+    "reasonPlaceholder": "Masukkan sebab limpah...",
+    "reasonRequired": "Sebab diperlukan",
+    "authenticate": "Sahkan & Limpah",
+    "authenticating": "Mengesahkan...",
+    "authFailed": "Pengesahan biometrik gagal",
+    "success": "Limpah berjaya dibenarkan",
+    "failed": "Limpah gagal. Sila cuba semula.",
+    "warning": "Tindakan ini akan direkodkan dan mungkin memerlukan semakan.",
+    "reasons": {
+      "medical": "Kecemasan Perubatan",
+      "fire": "Kecemasan Kebakaran",
+      "security": "Insiden Keselamatan",
+      "system": "Kerosakan Sistem",
+      "other": "Lain-lain (nyatakan)"
+    }
+  },
+  "offline": {
+    "banner": "Anda sedang luar talian",
+    "description": "Tindakan akan beratur dan disegerakkan apabila sambungan dipulihkan",
+    "queuedCount": "{count} tindakan beratur",
+    "syncPending": "Penyegerakan menunggu"
+  },
+  "error": {
+    "loadFailed": "Gagal memuatkan pelawat",
+    "actionFailed": "Tindakan gagal",
+    "networkError": "Ralat rangkaian. Sila semak sambungan anda.",
+    "unauthorized": "Sesi tamat tempoh. Sila log masuk semula.",
+    "serverError": "Ralat pelayan. Sila cuba semula kemudian."
+  }
+}

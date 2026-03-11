@@ -1,0 +1,136 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "refresh": "Refresh",
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Syncing",
+    "pending": "Pending",
+    "success": "Success",
+    "failed": "Failed"
+  },
+  "header": {
+    "title": "Guard Station",
+    "checkpoint": "Checkpoint",
+    "lastSync": "Last sync",
+    "never": "Never",
+    "secondsAgo": "{seconds}s ago",
+    "minutesAgo": "{minutes}m ago",
+    "language": "Language"
+  },
+  "visitor": {
+    "queue": "Visitor Queue",
+    "queueEmpty": "No visitors in queue",
+    "queueEmptyDescription": "New visitors will appear here when they arrive",
+    "total": "Total",
+    "pending": "Pending",
+    "verified": "Verified",
+    "denied": "Denied",
+    "status": {
+      "pending": "Pending",
+      "verified": "Verified",
+      "denied": "Denied"
+    },
+    "credentialType": {
+      "VisitorPass": "Visitor Pass",
+      "ContractorBadge": "Contractor Badge",
+      "EmergencyAccess": "Emergency Access"
+    },
+    "details": "Visitor Details",
+    "name": "Name",
+    "idHash": "ID Hash",
+    "purpose": "Purpose",
+    "host": "Host",
+    "unit": "Unit",
+    "credential": "Credential",
+    "arrived": "Arrived",
+    "expires": "Expires",
+    "noExpiry": "No expiry",
+    "verify": "Verify Entry",
+    "deny": "Deny Entry",
+    "verifying": "Verifying...",
+    "denying": "Denying...",
+    "entryGranted": "Entry granted",
+    "entryDenied": "Entry denied",
+    "verificationFailed": "Verification failed. Please try again.",
+    "filter": {
+      "all": "All Visitors",
+      "pending": "Pending Only",
+      "verified": "Verified Only",
+      "denied": "Denied Only"
+    },
+    "sort": {
+      "newest": "Newest First",
+      "oldest": "Oldest First",
+      "name": "By Name"
+    }
+  },
+  "status": {
+    "panel": "Status Panel",
+    "systemStatus": "System Status",
+    "apiConnection": "API Connection",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "bleScanner": "BLE Scanner",
+    "active": "Active",
+    "inactive": "Inactive",
+    "nfcReader": "NFC Reader",
+    "ready": "Ready",
+    "notAvailable": "Not Available",
+    "queuedActions": "Queued Actions",
+    "noQueuedActions": "No queued actions",
+    "action": {
+      "verify": "Verify",
+      "deny": "Deny",
+      "override": "Override"
+    },
+    "recentActivity": "Recent Activity",
+    "noActivity": "No recent activity",
+    "activity": {
+      "verified": "Verified entry for {name}",
+      "denied": "Denied entry for {name}",
+      "override": "Override granted for {name}"
+    }
+  },
+  "override": {
+    "title": "Emergency Override",
+    "description": "Emergency override requires biometric authentication and will be logged for audit purposes.",
+    "reason": "Override Reason",
+    "reasonPlaceholder": "Enter reason for override...",
+    "reasonRequired": "Reason is required",
+    "authenticate": "Authenticate & Override",
+    "authenticating": "Authenticating...",
+    "authFailed": "Biometric authentication failed",
+    "success": "Override granted successfully",
+    "failed": "Override failed. Please try again.",
+    "warning": "This action will be logged and may require review.",
+    "reasons": {
+      "medical": "Medical Emergency",
+      "fire": "Fire Emergency",
+      "security": "Security Incident",
+      "system": "System Malfunction",
+      "other": "Other (specify)"
+    }
+  },
+  "offline": {
+    "banner": "You are currently offline",
+    "description": "Actions will be queued and synced when connection is restored",
+    "queuedCount": "{count} action(s) queued",
+    "syncPending": "Sync pending"
+  },
+  "error": {
+    "loadFailed": "Failed to load visitors",
+    "actionFailed": "Action failed",
+    "networkError": "Network error. Please check your connection.",
+    "unauthorized": "Session expired. Please log in again.",
+    "serverError": "Server error. Please try again later."
+  }
+}
