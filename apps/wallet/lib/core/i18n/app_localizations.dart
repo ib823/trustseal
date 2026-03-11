@@ -53,6 +53,7 @@ class AppLocalizations {
       'ekyc_in_progress': 'Verification in progress...',
       'ekyc_success': 'Identity verified successfully.',
       'ekyc_failed': 'Verification failed. Please try again.',
+      'ekyc_skip': 'Skip for now',
       'key_generation_title': 'Secure Your Wallet',
       'key_generation_subtitle':
           'We are generating a secure key bound to this device.',
@@ -168,6 +169,7 @@ class AppLocalizations {
       'ekyc_in_progress': 'Pengesahan sedang dijalankan...',
       'ekyc_success': 'Identiti disahkan dengan jayanya.',
       'ekyc_failed': 'Pengesahan gagal. Sila cuba lagi.',
+      'ekyc_skip': 'Langkau buat masa ini',
       'key_generation_title': 'Lindungi Dompet Anda',
       'key_generation_subtitle':
           'Kami sedang menjana kunci selamat yang terikat pada peranti ini.',
@@ -288,6 +290,7 @@ class AppLocalizations {
   String get ekycInProgress => translate('ekyc_in_progress');
   String get ekycSuccess => translate('ekyc_success');
   String get ekycFailed => translate('ekyc_failed');
+  String get ekycSkip => translate('ekyc_skip');
   String get keyGenerationTitle => translate('key_generation_title');
   String get keyGenerationSubtitle => translate('key_generation_subtitle');
   String get keyGenerationInProgress => translate('key_generation_in_progress');

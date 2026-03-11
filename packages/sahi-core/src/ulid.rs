@@ -39,6 +39,10 @@ pub enum UlidPrefix {
     Tag,
     /// INV_ — Invitation
     Invitation,
+    /// IDV_ — Identity Verification (VP-9 eKYC)
+    IdentityVerification,
+    /// OAS_ — OAuth Session (VP-9 PKCE)
+    OAuthSession,
 }
 
 impl UlidPrefix {
@@ -63,6 +67,8 @@ impl UlidPrefix {
             Self::Signature => "SIG",
             Self::Tag => "TAG",
             Self::Invitation => "INV",
+            Self::IdentityVerification => "IDV",
+            Self::OAuthSession => "OAS",
         }
     }
 
@@ -87,6 +93,8 @@ impl UlidPrefix {
             "SIG" => Some(Self::Signature),
             "TAG" => Some(Self::Tag),
             "INV" => Some(Self::Invitation),
+            "IDV" => Some(Self::IdentityVerification),
+            "OAS" => Some(Self::OAuthSession),
             _ => None,
         }
     }

@@ -102,7 +102,7 @@ class _EkycScreenState extends ConsumerState<EkycScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.go(Routes.keyGeneration),
-                  child: const Text('Skip for now'),
+                  child: Text(l10n.ekycSkip),
                 ),
               ],
             ],

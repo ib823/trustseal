@@ -8,6 +8,7 @@
 
 mod middleware;
 mod routes;
+mod services;
 mod state;
 
 use std::sync::Arc;
@@ -64,6 +65,7 @@ async fn main() {
             "/api/v1",
             Router::new()
                 .route("/status", get(routes::health::health_check))
+                .nest("/ekyc", routes::ekyc::router())
                 .layer(axum_middleware::from_fn(middleware::tenant::require_tenant)),
         )
         // Global middleware (applied to ALL routes, bottom-up execution)
