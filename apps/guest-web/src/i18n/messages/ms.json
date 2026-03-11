@@ -102,6 +102,8 @@
     "visitorParking": "Tempat Letak Kereta Pelawat",
     "saveQr": "Simpan Kod QR",
     "sharePass": "Kongsi Pas",
+    "shareText": "Pas pelawat untuk {propertyName}",
+    "qrAlt": "Kod QR Pas Pelawat",
     "arrivalReminder": "Peringatan Ketibaan",
     "reminderHint": "Kami akan menghantar peringatan sebelum lawatan anda",
     "reminderSet": "Peringatan ditetapkan untuk {time}",

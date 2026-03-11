@@ -42,7 +42,7 @@ export function CompletionScreen() {
       try {
         await navigator.share({
           title: t("complete.passReady"),
-          text: `Visitor pass for ${invite?.propertyName}`,
+          text: t("complete.shareText", { propertyName: invite?.propertyName ?? "" }),
           url: credential.deepLink,
         });
       } catch {
@@ -83,7 +83,7 @@ export function CompletionScreen() {
             {qrCodeUrl ? (
               <Image
                 src={qrCodeUrl}
-                alt="Visitor Pass QR Code"
+                alt={t("complete.qrAlt")}
                 width={256}
                 height={256}
                 className="w-64 h-64"

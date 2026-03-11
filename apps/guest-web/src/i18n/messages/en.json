@@ -102,6 +102,8 @@
     "visitorParking": "Visitor Parking",
     "saveQr": "Save QR Code",
     "sharePass": "Share Pass",
+    "shareText": "Visitor pass for {propertyName}",
+    "qrAlt": "Visitor Pass QR Code",
     "arrivalReminder": "Arrival Reminder",
     "reminderHint": "We'll send you a reminder before your visit",
     "reminderSet": "Reminder set for {time}",
