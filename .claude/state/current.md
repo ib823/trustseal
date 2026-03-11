@@ -8,10 +8,10 @@
 
 ## Status
 
-**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6, VP-7 COMPLETE.** 355+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
+**PHASE 0 COMPLETE.** All foundation modules (F1-F6) implemented. **VP-1, VP-2, VP-3, VP-3b, VP-3c, VP-4, VP-5, VP-6, VP-7, VP-8 COMPLETE.** 390+ tests passing. Zero clippy warnings. 12 database tables with RLS. CI/CD pipeline configured. Platform API operational.
 
-**Current module:** VP-8 — Guest Web Flow (next)
-**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal), VP-7 (Guard Tablet)
+**Current module:** VP-9 — Onboarding + KYC flows (next)
+**Completed:** VP-1 (SD-JWT), VP-2 (DID Resolution), VP-3 (Status List + Credential Types), VP-3b (Compliance), VP-3c (Rules Engine), VP-4 (Wallet App), VP-5 (Edge Verifier), VP-6 (Admin Portal), VP-7 (Guard Tablet), VP-8 (Guest Web)
 
 ---
 
@@ -99,6 +99,45 @@
 - 2026-03-10: VP-5 — Edge Verifier (Raspberry Pi) COMPLETE. Rust firmware: BLE (GATT server, advertiser, protocol), NFC (PC/SC, APDU, NDEF), crypto (SD-JWT, DID resolver), policy (rules engine, offline mode), revocation (status list cache, MQTT sync), audit (SQLite append-only), hardware (GPIO, LED, buzzer, display, tamper). 90 tests, fail-closed security, feature flags for simulation/production.
 - 2026-03-10: VP-6 — Admin Portal COMPLETE. Next.js 14 with App Router. Dashboard (stats, activity, charts, verifier status), Residents (table, CRUD, credential management), Access Logs (filterable table, pagination), Verifiers (grid, status monitoring), Analytics (overview, peak hours, denial reasons, trends), Settings (property, security, notifications, schedule, team). i18n (EN/MS), React Query, Zustand, shadcn/ui. 47 files, build passing.
 - 2026-03-11: VP-7 — Guard Tablet PWA COMPLETE. Next.js 14 PWA for guard stations. 60/40 split-view (visitor queue/status panel). Offline-first with queued actions. Emergency override with biometric auth. Auto-refresh (30s). i18n (EN/MS). 50 files, 35 tests.
+- 2026-03-11: VP-8 — Guest Web Flow COMPLETE. Next.js 14 mobile-first visitor registration. 3-step wizard (info, verify, complete). QR code credential generation. Deep link to wallet. Optional liveness check. i18n (EN/MS). 40 files, 34 tests.
+
+---
+
+## VP-8 Completion Summary
+
+**Guest Web Structure (`apps/guest-web/src/`):**
+- `app/` — Next.js 14 App Router, invite page with dynamic routing
+- `components/header.tsx` — Language toggle, VaultPass branding
+- `components/footer.tsx` — Privacy, terms, help links
+- `components/step-indicator.tsx` — 3-step progress indicator
+- `components/invite-card.tsx` — Invite details (property, host, date)
+- `components/registration-form.tsx` — Full form with validation (name, ID, purpose)
+- `components/verification-step.tsx` — Optional liveness check with camera
+- `components/completion-screen.tsx` — QR code display, pass details, wallet CTA
+- `components/ui/` — Button, Input, Label, Select, Card, Progress, Checkbox
+- `lib/stores/` — registration-store (step, invite, registration, credential)
+- `lib/api/` — client.ts, invites.ts (with mock data)
+- `lib/utils.ts` — cn, date formatting, ID validation (IC/passport), hash
+- `i18n/` — config, request, messages (EN/MS with 100+ strings)
+
+**Flow per spec:**
+1. Guest receives invite link (SMS/email/WhatsApp)
+2. Opens link, sees invite details (property, host, date)
+3. Step 1: Fills minimal form (name, IC/passport, purpose)
+4. Step 2: Optional liveness check (camera selfie)
+5. Step 3: Credential issued as QR code + deep link to wallet
+
+**Design per spec:**
+- Mobile-first, single-column layout
+- Maximum 3 steps to completion
+- Language toggle (EN/MS) at top
+- Progressive disclosure
+- No jargon in primary UI
+
+**Tests (34 passing):**
+- Stores: step navigation, registration data, invite/credential management
+- Utils: cn, IC validation, passport validation, hash
+- API: invite fetch, registration submit, mock data
 
 ---
 
@@ -313,7 +352,7 @@
 - [x] VP-5 — Edge Verifier (Raspberry Pi) ✓ 30 files, 90 tests
 - [x] VP-6 — Admin Portal (Next.js) ✓ 47 files
 - [x] VP-7 — Guard Tablet (Next.js PWA) ✓ 50 files, 35 tests
-- [ ] VP-8 — Guest Web Flow
+- [x] VP-8 — Guest Web Flow ✓ 40 files, 34 tests
 - [ ] VP-9 — Onboarding + KYC flows
 
 ---

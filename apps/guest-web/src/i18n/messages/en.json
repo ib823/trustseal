@@ -1,0 +1,126 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "close": "Close",
+    "required": "Required",
+    "optional": "Optional"
+  },
+  "header": {
+    "title": "Visitor Registration",
+    "language": "Language",
+    "poweredBy": "Powered by VaultPass"
+  },
+  "invite": {
+    "welcome": "Welcome",
+    "youAreInvited": "You have been invited to visit",
+    "propertyName": "Property",
+    "hostName": "Host",
+    "visitDate": "Visit Date",
+    "expiresIn": "This invite expires in {time}",
+    "expired": "This invite has expired",
+    "invalid": "Invalid invite link",
+    "invalidDescription": "Please contact your host for a new invite",
+    "getStarted": "Get Started"
+  },
+  "steps": {
+    "info": "Your Info",
+    "verify": "Verify",
+    "complete": "Complete",
+    "step": "Step {current} of {total}"
+  },
+  "form": {
+    "title": "Your Information",
+    "description": "Please provide your details for visitor registration",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "idType": "ID Type",
+    "idTypeIc": "Malaysian IC",
+    "idTypePassport": "Passport",
+    "idNumber": "ID Number",
+    "idNumberPlaceholder": "Enter your ID number",
+    "idNumberHint": "Your ID will be securely hashed. We do not store the actual number.",
+    "purpose": "Purpose of Visit",
+    "purposePlaceholder": "Select purpose",
+    "purposeOptions": {
+      "social": "Social Visit",
+      "delivery": "Delivery",
+      "service": "Service/Repair",
+      "business": "Business Meeting",
+      "other": "Other"
+    },
+    "purposeOther": "Other Purpose",
+    "purposeOtherPlaceholder": "Please specify",
+    "vehicleNumber": "Vehicle Number",
+    "vehicleNumberPlaceholder": "e.g., ABC 1234",
+    "vehicleNumberHint": "Leave blank if not arriving by vehicle",
+    "termsAgree": "I agree to the visitor terms and privacy policy",
+    "termsRequired": "You must agree to continue",
+    "validation": {
+      "nameRequired": "Full name is required",
+      "nameMinLength": "Name must be at least 2 characters",
+      "idTypeRequired": "Please select an ID type",
+      "idNumberRequired": "ID number is required",
+      "idNumberInvalid": "Invalid ID number format",
+      "purposeRequired": "Purpose of visit is required",
+      "purposeOtherRequired": "Please specify the purpose"
+    }
+  },
+  "verify": {
+    "title": "Verify Your Identity",
+    "description": "Optional identity verification for faster entry",
+    "livenessCheck": "Liveness Check",
+    "livenessDescription": "Take a quick selfie to verify your identity",
+    "livenessButton": "Start Verification",
+    "livenessSkip": "Skip for now",
+    "livenessSuccess": "Identity verified successfully",
+    "livenessFailed": "Verification failed. Please try again.",
+    "livenessHint": "This helps guards verify you faster on arrival",
+    "processing": "Processing...",
+    "skip": "Skip Verification",
+    "skipHint": "You can still enter, but verification at the gate may take longer"
+  },
+  "complete": {
+    "title": "Registration Complete",
+    "description": "You're all set for your visit",
+    "passReady": "Your Visitor Pass is Ready",
+    "qrTitle": "Show this QR code on arrival",
+    "qrHint": "Guards will scan this to verify your access",
+    "downloadWallet": "Add to VaultPass Wallet",
+    "downloadWalletHint": "For the best experience, add your pass to the VaultPass app",
+    "appStoreButton": "Download App",
+    "passDetails": "Pass Details",
+    "validFrom": "Valid From",
+    "validUntil": "Valid Until",
+    "accessPoints": "Access Points",
+    "mainEntrance": "Main Entrance",
+    "visitorParking": "Visitor Parking",
+    "saveQr": "Save QR Code",
+    "sharePass": "Share Pass",
+    "arrivalReminder": "Arrival Reminder",
+    "reminderHint": "We'll send you a reminder before your visit",
+    "reminderSet": "Reminder set for {time}",
+    "done": "Done"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "genericMessage": "An error occurred. Please try again.",
+    "networkError": "Network error. Please check your connection.",
+    "serverError": "Server error. Please try again later.",
+    "inviteExpired": "This invite has expired. Please contact your host for a new invite.",
+    "inviteNotFound": "Invite not found. Please check the link and try again.",
+    "registrationFailed": "Registration failed. Please try again.",
+    "tryAgain": "Try Again",
+    "contactHost": "Contact Host"
+  },
+  "footer": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "help": "Help"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "common": {
+    "loading": "Memuatkan...",
+    "error": "Ralat",
+    "retry": "Cuba Semula",
+    "cancel": "Batal",
+    "back": "Kembali",
+    "next": "Seterusnya",
+    "submit": "Hantar",
+    "close": "Tutup",
+    "required": "Diperlukan",
+    "optional": "Pilihan"
+  },
+  "header": {
+    "title": "Pendaftaran Pelawat",
+    "language": "Bahasa",
+    "poweredBy": "Dikuasakan oleh VaultPass"
+  },
+  "invite": {
+    "welcome": "Selamat Datang",
+    "youAreInvited": "Anda telah dijemput untuk melawat",
+    "propertyName": "Hartanah",
+    "hostName": "Hos",
+    "visitDate": "Tarikh Lawatan",
+    "expiresIn": "Jemputan ini tamat dalam {time}",
+    "expired": "Jemputan ini telah tamat tempoh",
+    "invalid": "Pautan jemputan tidak sah",
+    "invalidDescription": "Sila hubungi hos anda untuk jemputan baharu",
+    "getStarted": "Mulakan"
+  },
+  "steps": {
+    "info": "Maklumat Anda",
+    "verify": "Pengesahan",
+    "complete": "Selesai",
+    "step": "Langkah {current} daripada {total}"
+  },
+  "form": {
+    "title": "Maklumat Anda",
+    "description": "Sila berikan butiran anda untuk pendaftaran pelawat",
+    "fullName": "Nama Penuh",
+    "fullNamePlaceholder": "Masukkan nama penuh anda",
+    "idType": "Jenis ID",
+    "idTypeIc": "IC Malaysia",
+    "idTypePassport": "Pasport",
+    "idNumber": "Nombor ID",
+    "idNumberPlaceholder": "Masukkan nombor ID anda",
+    "idNumberHint": "ID anda akan disulitkan dengan selamat. Kami tidak menyimpan nombor sebenar.",
+    "purpose": "Tujuan Lawatan",
+    "purposePlaceholder": "Pilih tujuan",
+    "purposeOptions": {
+      "social": "Lawatan Sosial",
+      "delivery": "Penghantaran",
+      "service": "Servis/Pembaikan",
+      "business": "Mesyuarat Perniagaan",
+      "other": "Lain-lain"
+    },
+    "purposeOther": "Tujuan Lain",
+    "purposeOtherPlaceholder": "Sila nyatakan",
+    "vehicleNumber": "Nombor Kenderaan",
+    "vehicleNumberPlaceholder": "cth., ABC 1234",
+    "vehicleNumberHint": "Biarkan kosong jika tidak datang dengan kenderaan",
+    "termsAgree": "Saya bersetuju dengan terma pelawat dan polisi privasi",
+    "termsRequired": "Anda mesti bersetuju untuk meneruskan",
+    "validation": {
+      "nameRequired": "Nama penuh diperlukan",
+      "nameMinLength": "Nama mesti sekurang-kurangnya 2 aksara",
+      "idTypeRequired": "Sila pilih jenis ID",
+      "idNumberRequired": "Nombor ID diperlukan",
+      "idNumberInvalid": "Format nombor ID tidak sah",
+      "purposeRequired": "Tujuan lawatan diperlukan",
+      "purposeOtherRequired": "Sila nyatakan tujuan"
+    }
+  },
+  "verify": {
+    "title": "Sahkan Identiti Anda",
+    "description": "Pengesahan identiti pilihan untuk kemasukan lebih pantas",
+    "livenessCheck": "Semakan Kehadiran",
+    "livenessDescription": "Ambil swafoto pantas untuk mengesahkan identiti anda",
+    "livenessButton": "Mulakan Pengesahan",
+    "livenessSkip": "Langkau buat masa ini",
+    "livenessSuccess": "Identiti berjaya disahkan",
+    "livenessFailed": "Pengesahan gagal. Sila cuba semula.",
+    "livenessHint": "Ini membantu pengawal mengesahkan anda dengan lebih pantas",
+    "processing": "Memproses...",
+    "skip": "Langkau Pengesahan",
+    "skipHint": "Anda masih boleh masuk, tetapi pengesahan di pintu mungkin mengambil masa lebih lama"
+  },
+  "complete": {
+    "title": "Pendaftaran Selesai",
+    "description": "Anda sudah bersedia untuk lawatan anda",
+    "passReady": "Pas Pelawat Anda Sedia",
+    "qrTitle": "Tunjukkan kod QR ini semasa tiba",
+    "qrHint": "Pengawal akan mengimbas ini untuk mengesahkan akses anda",
+    "downloadWallet": "Tambah ke VaultPass Wallet",
+    "downloadWalletHint": "Untuk pengalaman terbaik, tambah pas anda ke aplikasi VaultPass",
+    "appStoreButton": "Muat Turun Aplikasi",
+    "passDetails": "Butiran Pas",
+    "validFrom": "Sah Dari",
+    "validUntil": "Sah Sehingga",
+    "accessPoints": "Titik Akses",
+    "mainEntrance": "Pintu Masuk Utama",
+    "visitorParking": "Tempat Letak Kereta Pelawat",
+    "saveQr": "Simpan Kod QR",
+    "sharePass": "Kongsi Pas",
+    "arrivalReminder": "Peringatan Ketibaan",
+    "reminderHint": "Kami akan menghantar peringatan sebelum lawatan anda",
+    "reminderSet": "Peringatan ditetapkan untuk {time}",
+    "done": "Selesai"
+  },
+  "error": {
+    "title": "Sesuatu tidak kena",
+    "genericMessage": "Ralat berlaku. Sila cuba semula.",
+    "networkError": "Ralat rangkaian. Sila semak sambungan anda.",
+    "serverError": "Ralat pelayan. Sila cuba semula kemudian.",
+    "inviteExpired": "Jemputan ini telah tamat tempoh. Sila hubungi hos anda untuk jemputan baharu.",
+    "inviteNotFound": "Jemputan tidak ditemui. Sila semak pautan dan cuba semula.",
+    "registrationFailed": "Pendaftaran gagal. Sila cuba semula.",
+    "tryAgain": "Cuba Semula",
+    "contactHost": "Hubungi Hos"
+  },
+  "footer": {
+    "privacy": "Polisi Privasi",
+    "terms": "Terma Perkhidmatan",
+    "help": "Bantuan"
+  }
+}
