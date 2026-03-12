@@ -5,7 +5,7 @@ use std::time::Instant;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::Utc;
 use ring::signature::{self, UnparsedPublicKey};
-use sd_jwt_payload::SdJwt;
+use sd_jwt_payload::{Hasher, SdJwt, Sha256Hasher};
 use serde_json::Value;
 use tracing::{debug, instrument, warn};
 
@@ -97,7 +97,7 @@ impl SdJwtVerifier {
         // 5. Verify key binding JWT (if present)
         let (holder, key_binding_valid) = if let Some(kb_jwt) = sd_jwt.key_binding_jwt() {
             let holder_key = sd_jwt.required_key_bind();
-            self.verify_key_binding(kb_jwt, holder_key, expected_nonce)?
+            self.verify_key_binding(sd_jwt, kb_jwt, holder_key, expected_nonce)?
         } else {
             (None, false)
         };
@@ -238,44 +238,21 @@ impl SdJwtVerifier {
 
     /// Resolve disclosures into fully expanded claims.
     fn resolve_disclosures(sd_jwt: &SdJwt) -> Result<Value, CryptoError> {
-        // Start with the base claims
-        let mut claims = serde_json::to_value(sd_jwt.claims())
-            .map_err(|e| CryptoError::Internal(format!("Failed to serialize claims: {e}")))?;
-
-        // For each disclosure, add the revealed value to claims
-        for disclosure in sd_jwt.disclosures() {
-            if let Some(claim_name) = &disclosure.claim_name {
-                // Add to claims object
-                if let Some(obj) = claims.as_object_mut() {
-                    obj.insert(claim_name.clone(), disclosure.claim_value.clone());
-                }
-            }
-        }
-
-        // Remove SD-JWT internal fields from output
-        if let Some(obj) = claims.as_object_mut() {
-            obj.remove("_sd");
-            obj.remove("_sd_alg");
-        }
-
-        Ok(claims)
+        let disclosed = sd_jwt
+            .clone()
+            .into_disclosed_object(&Sha256Hasher::new())
+            .map_err(|e| CryptoError::Internal(format!("Failed to resolve disclosures: {e}")))?;
+        Ok(Value::Object(disclosed))
     }
 
     /// Verify the Key Binding JWT.
     fn verify_key_binding(
         &self,
+        sd_jwt: &SdJwt,
         kb_jwt: &sd_jwt_payload::KeyBindingJwt,
         holder_key: Option<&sd_jwt_payload::RequiredKeyBinding>,
         expected_nonce: Option<&str>,
     ) -> Result<(Option<String>, bool), CryptoError> {
-        // Extract holder public key from cnf claim
-        let holder_public_key = match holder_key {
-            Some(sd_jwt_payload::RequiredKeyBinding::Jwk(jwk)) => {
-                Self::extract_ed25519_from_jwk_object(jwk)?
-            }
-            _ => return Ok((None, false)),
-        };
-
         // Get KB-JWT claims
         let kb_claims = kb_jwt.claims();
 
@@ -311,43 +288,115 @@ impl SdJwtVerifier {
             return Ok((None, false));
         }
 
-        // Verify KB-JWT signature
         let kb_str = kb_jwt.to_string();
         let parts: Vec<&str> = kb_str.split('.').collect();
         if parts.len() != 3 {
             return Ok((None, false));
         }
 
+        let header_bytes = URL_SAFE_NO_PAD
+            .decode(parts[0])
+            .map_err(|_| CryptoError::Internal("Invalid KB-JWT header encoding".to_string()))?;
+        let header: Value = serde_json::from_slice(&header_bytes)
+            .map_err(|_| CryptoError::Internal("Invalid KB-JWT header JSON".to_string()))?;
+        let alg = header
+            .get("alg")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CryptoError::Internal("Missing KB-JWT alg".to_string()))?;
+
+        let presentation_without_kb = presentation_without_kb(sd_jwt);
+        let expected_sd_hash =
+            URL_SAFE_NO_PAD.encode(Sha256Hasher::new().digest(presentation_without_kb.as_bytes()));
+        if kb_claims.sd_hash != expected_sd_hash {
+            debug!(
+                expected = expected_sd_hash,
+                actual = kb_claims.sd_hash,
+                "KB-JWT sd_hash mismatch"
+            );
+            return Ok((None, false));
+        }
+
+        // Extract holder public key from cnf claim
+        let (holder_public_key, holder_did) = match holder_key {
+            Some(sd_jwt_payload::RequiredKeyBinding::Jwk(jwk)) => {
+                let key = Self::extract_verification_key_from_jwk_object(jwk, alg)?;
+                (key, None)
+            }
+            Some(sd_jwt_payload::RequiredKeyBinding::Kid(kid)) => {
+                let holder_did = if kid.starts_with("did:") {
+                    Some(kid.clone())
+                } else {
+                    None
+                };
+                let key = match alg {
+                    "EdDSA" => VerificationKey::Ed25519(Vec::new()),
+                    "ES256" => VerificationKey::P256(Vec::new()),
+                    _ => return Ok((None, false)),
+                };
+                (key, holder_did)
+            }
+            _ => return Ok((None, false)),
+        };
+
+        // Verify KB-JWT signature
         let signing_input = format!("{}.{}", parts[0], parts[1]);
         let signature = URL_SAFE_NO_PAD
             .decode(parts[2])
             .map_err(|_| CryptoError::Internal("Invalid KB-JWT signature encoding".to_string()))?;
 
-        let public_key = UnparsedPublicKey::new(&signature::ED25519, &holder_public_key);
-        let valid = public_key
-            .verify(signing_input.as_bytes(), &signature)
-            .is_ok();
+        let valid = match &holder_public_key {
+            VerificationKey::Ed25519(public_key) => {
+                let public_key = UnparsedPublicKey::new(&signature::ED25519, public_key);
+                public_key
+                    .verify(signing_input.as_bytes(), &signature)
+                    .is_ok()
+            }
+            VerificationKey::P256(public_key) => {
+                let public_key =
+                    UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_FIXED, public_key);
+                public_key
+                    .verify(signing_input.as_bytes(), &signature)
+                    .is_ok()
+            }
+        };
 
-        // Extract holder DID from key
-        let holder_did = Self::derive_did_key(&holder_public_key);
+        let holder_did = holder_did.or_else(|| match &holder_public_key {
+            VerificationKey::Ed25519(public_key) => Some(Self::derive_did_key(public_key)),
+            VerificationKey::P256(_) => None,
+        });
 
-        Ok((Some(holder_did), valid))
+        Ok((holder_did, valid))
     }
 
-    /// Extract Ed25519 public key from JWK object (Map<String, Value>).
-    fn extract_ed25519_from_jwk_object(
+    /// Extract a verification key from a JWK object (Map<String, Value>).
+    fn extract_verification_key_from_jwk_object(
         jwk: &sd_jwt_payload::JsonObject,
-    ) -> Result<Vec<u8>, CryptoError> {
+        alg: &str,
+    ) -> Result<VerificationKey, CryptoError> {
         let kty = jwk.get("kty").and_then(|v| v.as_str());
         let crv = jwk.get("crv").and_then(|v| v.as_str());
         let x = jwk.get("x").and_then(|v| v.as_str());
+        let y = jwk.get("y").and_then(|v| v.as_str());
 
-        match (kty, crv, x) {
-            (Some("OKP"), Some("Ed25519"), Some(x_b64)) => URL_SAFE_NO_PAD
+        match (alg, kty, crv, x, y) {
+            ("EdDSA", Some("OKP"), Some("Ed25519"), Some(x_b64), _) => URL_SAFE_NO_PAD
                 .decode(x_b64)
+                .map(VerificationKey::Ed25519)
                 .map_err(|e| CryptoError::Internal(format!("Invalid JWK x coordinate: {e}"))),
+            ("ES256", Some("EC"), Some("P-256"), Some(x_b64), Some(y_b64)) => {
+                let x = URL_SAFE_NO_PAD
+                    .decode(x_b64)
+                    .map_err(|e| CryptoError::Internal(format!("Invalid JWK x coordinate: {e}")))?;
+                let y = URL_SAFE_NO_PAD
+                    .decode(y_b64)
+                    .map_err(|e| CryptoError::Internal(format!("Invalid JWK y coordinate: {e}")))?;
+                let mut public_key = vec![0x04];
+                public_key.extend_from_slice(&x);
+                public_key.extend_from_slice(&y);
+                Ok(VerificationKey::P256(public_key))
+            }
             _ => Err(CryptoError::Internal(
-                "JWK is not a valid Ed25519 key".to_string(),
+                "JWK is not valid for the KB-JWT algorithm".to_string(),
             )),
         }
     }
@@ -362,6 +411,20 @@ impl SdJwtVerifier {
         let encoded = bs58::encode(&multicodec).into_string();
         format!("did:key:z{encoded}")
     }
+}
+
+enum VerificationKey {
+    Ed25519(Vec<u8>),
+    P256(Vec<u8>),
+}
+
+fn presentation_without_kb(sd_jwt: &SdJwt) -> String {
+    let presentation = sd_jwt.presentation();
+    let mut segments: Vec<&str> = presentation.split('~').collect();
+    if sd_jwt.key_binding_jwt().is_some() {
+        let _ = segments.pop();
+    }
+    format!("{}~", segments.join("~"))
 }
 
 impl Default for SdJwtVerifier {

@@ -28,3 +28,4 @@ reqwest = { workspace = true }
 urlencoding = { workspace = true }
 sha2 = { workspace = true }
 ring = { workspace = true }
+jsonwebtoken = { version = "10.3", features = ["rust_crypto"] }

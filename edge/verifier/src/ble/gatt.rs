@@ -152,10 +152,7 @@ impl GattServer {
             .map_err(|_| GattError::ChannelClosed)?;
 
         // Wait for response
-        let response = response_rx
-            .recv()
-            .await
-            .ok_or(GattError::ChannelClosed)?;
+        let response = response_rx.recv().await.ok_or(GattError::ChannelClosed)?;
 
         // Encode response before releasing read lock
         let encoded = protocol.encode_response(&response)?;

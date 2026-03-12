@@ -3,10 +3,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use reqwest::Url;
+use serde_json::Value;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use super::RevocationCache;
 
@@ -83,17 +85,35 @@ impl RevocationSync {
     pub async fn fetch_and_update(&self, url: &str) -> Result<(), SyncError> {
         info!("Fetching status list: {}", url);
 
-        // In production, this would use reqwest or similar
-        // For now, stub with TODO
-        // let response = reqwest::get(url).await?;
-        // let body: serde_json::Value = response.json().await?;
-        // let encoded_list = body["credentialSubject"]["encodedList"].as_str()
-        //     .ok_or_else(|| SyncError::ParseError("Missing encodedList".to_string()))?;
-        // let credential_id = body["id"].as_str()
-        //     .ok_or_else(|| SyncError::ParseError("Missing id".to_string()))?;
-        // self.cache.update(url, credential_id, encoded_list).await?;
+        let target = resolve_status_list_url(url, &self.config.api_base_url)?;
+        let response = reqwest::get(target)
+            .await
+            .map_err(|e| SyncError::HttpError(e.to_string()))?;
 
-        warn!("HTTP fetch not yet implemented - using cached data");
+        let status = response.status();
+        if !status.is_success() {
+            return Err(SyncError::HttpError(format!(
+                "status list fetch returned HTTP {status}"
+            )));
+        }
+
+        let body = response
+            .json::<Value>()
+            .await
+            .map_err(|e| SyncError::ParseError(e.to_string()))?;
+        let encoded_list = body
+            .get("credentialSubject")
+            .and_then(|subject| subject.get("encodedList"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                SyncError::ParseError("Missing credentialSubject.encodedList".to_string())
+            })?;
+        let credential_id = body
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| SyncError::ParseError("Missing id".to_string()))?;
+
+        self.cache.update(url, credential_id, encoded_list).await?;
         Ok(())
     }
 
@@ -138,6 +158,16 @@ impl RevocationSync {
             }
         }
     }
+}
+
+fn resolve_status_list_url(url: &str, api_base_url: &str) -> Result<Url, SyncError> {
+    if let Ok(parsed) = Url::parse(url) {
+        return Ok(parsed);
+    }
+
+    let base = Url::parse(api_base_url).map_err(|e| SyncError::HttpError(e.to_string()))?;
+    base.join(url)
+        .map_err(|e| SyncError::HttpError(format!("Invalid status list URL: {e}")))
 }
 
 #[cfg(test)]

@@ -19,9 +19,11 @@
 //! - `credential_types` — VaultPass credential type definitions (VP-3).
 //! - `compliance` — Compliance enforcement for credential issuance (VP-3b).
 //! - `access_rules` — Business logic rules engine for access decisions (VP-3c).
+//! - `bbs_plus` — BBS+ signatures for unlinkable presentations (Phase 2 stub).
 //! - `error` — Typed error types with SAHI_XXXX codes.
 
 pub mod access_rules;
+pub mod bbs_plus;
 pub mod compliance;
 pub mod credential_types;
 pub mod did;

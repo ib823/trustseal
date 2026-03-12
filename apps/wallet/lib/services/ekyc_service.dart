@@ -96,7 +96,7 @@ class EkycService {
     if (_currentVerification!.state != state) {
       throw const EkycException(
         'State mismatch - possible security issue',
-        code: 'SAHI_4000',
+        code: 'SAHI_2307',
       );
     }
 

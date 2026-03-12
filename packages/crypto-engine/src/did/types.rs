@@ -30,7 +30,11 @@ impl Did {
         let (method, rest) = rest.split_once(':')?;
 
         // Method must be lowercase alphanumeric
-        if method.is_empty() || !method.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
+        if method.is_empty()
+            || !method
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        {
             return None;
         }
 
@@ -49,7 +53,9 @@ impl Did {
     /// Returns the DID method (e.g., "web", "key", "peer").
     #[must_use]
     pub fn method(&self) -> Option<&str> {
-        self.0.strip_prefix("did:").and_then(|s| s.split(':').next())
+        self.0
+            .strip_prefix("did:")
+            .and_then(|s| s.split(':').next())
     }
 
     /// Returns whether this is a did:key DID.
@@ -189,13 +195,18 @@ impl DidDocument {
     #[must_use]
     pub fn find_verification_method(&self, id: &str) -> Option<&VerificationMethod> {
         self.verification_method.iter().find(|vm| {
-            vm.id == id || vm.id.ends_with(&format!("#{id}")) || id.ends_with(&format!("#{}", vm.id.split('#').next_back().unwrap_or("")))
+            vm.id == id
+                || vm.id.ends_with(&format!("#{id}"))
+                || id.ends_with(&format!("#{}", vm.id.split('#').next_back().unwrap_or("")))
         })
     }
 
     /// Get verification methods for a specific purpose.
     #[must_use]
-    pub fn verification_methods_for_purpose(&self, purpose: VerificationPurpose) -> Vec<&VerificationMethod> {
+    pub fn verification_methods_for_purpose(
+        &self,
+        purpose: VerificationPurpose,
+    ) -> Vec<&VerificationMethod> {
         let relationships = match purpose {
             VerificationPurpose::Authentication => &self.authentication,
             VerificationPurpose::AssertionMethod => &self.assertion_method,
@@ -326,24 +337,40 @@ fn extract_key_from_jwk(jwk: &Value) -> Result<Vec<u8>, String> {
     match (kty, crv) {
         // Ed25519 (OKP curve)
         ("OKP", "Ed25519") => {
-            let x = jwk.get("x").and_then(|v| v.as_str())
+            let x = jwk
+                .get("x")
+                .and_then(|v| v.as_str())
                 .ok_or("Missing 'x' in Ed25519 JWK")?;
-            URL_SAFE_NO_PAD.decode(x).map_err(|e| format!("Invalid x: {e}"))
+            URL_SAFE_NO_PAD
+                .decode(x)
+                .map_err(|e| format!("Invalid x: {e}"))
         }
         // X25519 (OKP curve for key agreement)
         ("OKP", "X25519") => {
-            let x = jwk.get("x").and_then(|v| v.as_str())
+            let x = jwk
+                .get("x")
+                .and_then(|v| v.as_str())
                 .ok_or("Missing 'x' in X25519 JWK")?;
-            URL_SAFE_NO_PAD.decode(x).map_err(|e| format!("Invalid x: {e}"))
+            URL_SAFE_NO_PAD
+                .decode(x)
+                .map_err(|e| format!("Invalid x: {e}"))
         }
         // P-256 (EC curve)
         ("EC", "P-256") => {
-            let x = jwk.get("x").and_then(|v| v.as_str())
+            let x = jwk
+                .get("x")
+                .and_then(|v| v.as_str())
                 .ok_or("Missing 'x' in P-256 JWK")?;
-            let y = jwk.get("y").and_then(|v| v.as_str())
+            let y = jwk
+                .get("y")
+                .and_then(|v| v.as_str())
                 .ok_or("Missing 'y' in P-256 JWK")?;
-            let x_bytes = URL_SAFE_NO_PAD.decode(x).map_err(|e| format!("Invalid x: {e}"))?;
-            let y_bytes = URL_SAFE_NO_PAD.decode(y).map_err(|e| format!("Invalid y: {e}"))?;
+            let x_bytes = URL_SAFE_NO_PAD
+                .decode(x)
+                .map_err(|e| format!("Invalid x: {e}"))?;
+            let y_bytes = URL_SAFE_NO_PAD
+                .decode(y)
+                .map_err(|e| format!("Invalid y: {e}"))?;
             // Return uncompressed format: 0x04 || x || y
             let mut result = vec![0x04];
             result.extend(x_bytes);
@@ -364,15 +391,21 @@ fn decode_multibase(s: &str) -> Result<Vec<u8>, String> {
     let data = &s[1..];
 
     match prefix {
-        'z' => bs58::decode(data).into_vec().map_err(|e| format!("Invalid base58btc: {e}")),
+        'z' => bs58::decode(data)
+            .into_vec()
+            .map_err(|e| format!("Invalid base58btc: {e}")),
         'f' => hex::decode(data).map_err(|e| format!("Invalid hex: {e}")),
         'u' => {
             use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-            URL_SAFE_NO_PAD.decode(data).map_err(|e| format!("Invalid base64url: {e}"))
+            URL_SAFE_NO_PAD
+                .decode(data)
+                .map_err(|e| format!("Invalid base64url: {e}"))
         }
         'm' => {
             use base64::{engine::general_purpose::STANDARD, Engine};
-            STANDARD.decode(data).map_err(|e| format!("Invalid base64: {e}"))
+            STANDARD
+                .decode(data)
+                .map_err(|e| format!("Invalid base64: {e}"))
         }
         _ => Err(format!("Unsupported multibase prefix: {prefix}")),
     }
@@ -514,7 +547,8 @@ mod tests {
 
     #[test]
     fn parse_did_key() {
-        let components = Did::parse("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK").unwrap();
+        let components =
+            Did::parse("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK").unwrap();
         assert_eq!(components.method, "key");
         assert!(components.method_specific_id.starts_with("z6Mkh"));
         assert!(components.path.is_none());

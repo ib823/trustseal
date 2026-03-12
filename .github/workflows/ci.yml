@@ -113,7 +113,10 @@ jobs:
       - name: Run migrations
         env:
           DATABASE_URL: postgresql://vaultpass:password@localhost:5432/vaultpass_platform
-        run: psql "$DATABASE_URL" -f migrations/20260310000001_create_tenants.sql
+        run: |
+          for migration in $(find migrations -maxdepth 1 -type f -name '*.sql' | sort); do
+            psql "$DATABASE_URL" -f "$migration"
+          done
 
       - name: Run integration tests
         env:

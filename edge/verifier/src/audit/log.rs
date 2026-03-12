@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -142,7 +142,7 @@ impl AuditLog {
         )?;
 
         // Enable WAL mode for better concurrent access
-        conn.execute("PRAGMA journal_mode=WAL", [])?;
+        conn.pragma_update(None, "journal_mode", "WAL")?;
 
         Ok(Self {
             conn: Mutex::new(conn),
@@ -249,8 +249,14 @@ impl AuditLog {
                 serde_json::to_string(&entry.event_type)?,
                 entry.credential_id,
                 entry.holder_did,
-                entry.outcome.map(|o| serde_json::to_string(&o)).transpose()?,
-                entry.denial_reason.map(|r| serde_json::to_string(&r)).transpose()?,
+                entry
+                    .outcome
+                    .map(|o| serde_json::to_string(&o))
+                    .transpose()?,
+                entry
+                    .denial_reason
+                    .map(|r| serde_json::to_string(&r))
+                    .transpose()?,
                 entry.method,
                 entry.duration_ms,
                 entry.metadata.map(|m| m.to_string()),

@@ -70,7 +70,10 @@ impl ConditionEvaluator for TimeWindowCondition {
         if !self.days.contains(&current_weekday) {
             return ConditionMatch::unmatched(
                 "time_window",
-                format!("Day {} not in allowed days {:?}", current_weekday, self.days),
+                format!(
+                    "Day {} not in allowed days {:?}",
+                    current_weekday, self.days
+                ),
             );
         }
 
@@ -86,7 +89,10 @@ impl ConditionEvaluator for TimeWindowCondition {
         if in_window {
             ConditionMatch::matched(
                 "time_window",
-                format!("Time {} is within {}-{}", current_time, self.start, self.end),
+                format!(
+                    "Time {} is within {}-{}",
+                    current_time, self.start, self.end
+                ),
             )
         } else {
             ConditionMatch::unmatched(
@@ -280,7 +286,9 @@ pub fn evaluate_condition(condition: &Condition, ctx: &EvaluationContext) -> Con
         Condition::TimeWindow { start, end, days } => {
             TimeWindowCondition::new(start, end, days.clone()).evaluate(ctx)
         }
-        Condition::FloorAccess { floors } => FloorAccessCondition::new(floors.clone()).evaluate(ctx),
+        Condition::FloorAccess { floors } => {
+            FloorAccessCondition::new(floors.clone()).evaluate(ctx)
+        }
         Condition::Role { roles } => RoleCondition::new(roles.clone()).evaluate(ctx),
         Condition::Clearance { min_level } => ClearanceCondition::new(*min_level).evaluate(ctx),
         Condition::CredentialType { types } => {

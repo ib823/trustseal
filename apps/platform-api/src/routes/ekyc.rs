@@ -3,17 +3,18 @@
 //! Endpoints for MyDigital ID integration and identity verification.
 
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use crypto_engine::did::Did;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use crate::services::ekyc::{
-    AssuranceLevel, EkycError, EkycService, VerificationProvider, VerificationStatus,
-};
+use crate::middleware::tenant::TenantId;
+use crate::services::ekyc::EkycService;
 use crate::state::AppState;
 
 /// Build the eKYC router.
@@ -30,8 +31,8 @@ pub fn router() -> Router<AppState> {
 /// Request to initiate verification.
 #[derive(Debug, Deserialize)]
 pub struct InitiateRequest {
-    /// Tenant ID (from JWT or header).
-    pub tenant_id: String,
+    /// Tenant ID is derived from authenticated context.
+    pub tenant_id: Option<String>,
     /// Optional user ID if already registered.
     pub user_id: Option<String>,
     /// Redirect URI for mobile app callback.
@@ -133,26 +134,31 @@ pub struct ErrorResponse {
 ///
 /// Initiate a new eKYC verification flow.
 async fn initiate_verification(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    Extension(TenantId(tenant_id)): Extension<TenantId>,
     Json(request): Json<InitiateRequest>,
 ) -> impl IntoResponse {
-    // In production, we'd get EkycService from state with proper config
-    // For now, use mock configuration for development
-    let service = match create_ekyc_service() {
-        Ok(s) => s,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    code: "SAHI_5001".to_string(),
-                    message: format!("eKYC service configuration error: {e}"),
-                }),
-            )
-                .into_response();
-        }
+    if request
+        .tenant_id
+        .as_deref()
+        .is_some_and(|supplied| supplied != tenant_id)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                code: "SAHI_2301".to_string(),
+                message: "Tenant ID must not override the authenticated tenant context".to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    let (service, store) = match configured_ekyc_runtime(&state) {
+        Ok(runtime) => runtime,
+        Err(response) => return *response,
     };
 
-    let response = match service.initiate_verification(&request.tenant_id, request.user_id.as_deref()) {
+    let response = match service.initiate_verification(&tenant_id, request.user_id.as_deref()) {
         Ok(r) => r,
         Err(e) => {
             return (
@@ -166,7 +172,19 @@ async fn initiate_verification(
         }
     };
 
-    // In production, persist verification and session to database here
+    if let Err(e) = store
+        .create_flow(&response.verification, &response.session)
+        .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                code: "SAHI_5002".to_string(),
+                message: format!("Failed to persist verification flow: {e}"),
+            }),
+        )
+            .into_response();
+    }
 
     (
         StatusCode::OK,
@@ -183,28 +201,123 @@ async fn initiate_verification(
 /// POST /api/v1/ekyc/callback
 ///
 /// Handle OAuth callback from MyDigital ID.
+#[allow(clippy::too_many_lines)]
 async fn handle_callback(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    Extension(TenantId(tenant_id)): Extension<TenantId>,
     Json(request): Json<CallbackRequest>,
 ) -> impl IntoResponse {
-    // In production:
-    // 1. Look up OAuth session by state
-    // 2. Verify session belongs to verification_id
-    // 3. Call service.handle_callback()
-    // 4. Update verification record in database
-    // 5. Delete OAuth session
+    let (service, store) = match configured_ekyc_runtime(&state) {
+        Ok(runtime) => runtime,
+        Err(response) => return *response,
+    };
 
-    // For now, return a mock success response
-    // The actual implementation requires database integration
+    let Some(session) = (match store
+        .find_session_by_state(&tenant_id, &request.state)
+        .await
+    {
+        Ok(session) => session,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    code: "SAHI_5003".to_string(),
+                    message: format!("Failed to read OAuth session: {e}"),
+                }),
+            )
+                .into_response();
+        }
+    }) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                code: "SAHI_2304".to_string(),
+                message: "OAuth session not found or already consumed".to_string(),
+            }),
+        )
+            .into_response();
+    };
+
+    if session.verification_id != request.verification_id {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                code: "SAHI_2305".to_string(),
+                message: "Callback verification ID does not match the stored OAuth session"
+                    .to_string(),
+            }),
+        )
+            .into_response();
+    }
+
+    let callback = match service
+        .handle_callback(&request.code, &request.state, &session)
+        .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            let _ = store
+                .mark_failed(&tenant_id, &session.verification_id, &e.to_string())
+                .await;
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    code: "SAHI_2306".to_string(),
+                    message: format!("Verification callback failed: {e}"),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let verification = match store
+        .mark_verified(
+            &tenant_id,
+            &callback.verification_id,
+            &callback.claims,
+            callback.verified_at,
+            callback.expires_at,
+        )
+        .await
+    {
+        Ok(verification) => verification,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    code: "SAHI_5004".to_string(),
+                    message: format!("Failed to persist verified identity: {e}"),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    if let Err(e) = store.delete_session(&tenant_id, &session.id).await {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                code: "SAHI_5005".to_string(),
+                message: format!("Verification succeeded but session cleanup failed: {e}"),
+            }),
+        )
+            .into_response();
+    }
 
     (
         StatusCode::OK,
         Json(CallbackResponse {
-            verification_id: request.verification_id,
-            status: VerificationStatus::Verified.to_string(),
-            assurance_level: AssuranceLevel::P2.to_string(),
-            verified_at: chrono::Utc::now().to_rfc3339(),
-            expires_at: (chrono::Utc::now() + chrono::Duration::days(365)).to_rfc3339(),
+            verification_id: verification.id,
+            status: verification.status.to_string(),
+            assurance_level: verification.assurance_level.to_string(),
+            verified_at: verification
+                .verified_at
+                .expect("verified_at set by mark_verified")
+                .to_rfc3339(),
+            expires_at: verification
+                .expires_at
+                .expect("expires_at set by mark_verified")
+                .to_rfc3339(),
         }),
     )
         .into_response()
@@ -214,23 +327,50 @@ async fn handle_callback(
 ///
 /// Get verification status.
 async fn get_status(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    Extension(TenantId(tenant_id)): Extension<TenantId>,
     Path(verification_id): Path<String>,
 ) -> impl IntoResponse {
-    // In production, look up verification from database
+    let (_, store) = match configured_ekyc_runtime(&state) {
+        Ok(runtime) => runtime,
+        Err(response) => return *response,
+    };
 
-    // For now, return a mock response
+    let verification = match store.get_verification(&tenant_id, &verification_id).await {
+        Ok(Some(verification)) => verification,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    code: "SAHI_2307".to_string(),
+                    message: "Verification record not found".to_string(),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    code: "SAHI_5006".to_string(),
+                    message: format!("Failed to load verification status: {e}"),
+                }),
+            )
+                .into_response()
+        }
+    };
+
     (
         StatusCode::OK,
         Json(StatusResponse {
-            verification_id,
-            status: VerificationStatus::Pending.to_string(),
-            provider: VerificationProvider::MydigitalId.to_string(),
-            assurance_level: AssuranceLevel::P1.to_string(),
-            did: None,
-            verified_at: None,
-            expires_at: None,
-            created_at: chrono::Utc::now().to_rfc3339(),
+            verification_id: verification.id,
+            status: verification.status.to_string(),
+            provider: verification.provider.to_string(),
+            assurance_level: verification.assurance_level.to_string(),
+            did: verification.did,
+            verified_at: verification.verified_at.map(|value| value.to_rfc3339()),
+            expires_at: verification.expires_at.map(|value| value.to_rfc3339()),
+            created_at: verification.created_at.to_rfc3339(),
         }),
     )
         .into_response()
@@ -240,34 +380,98 @@ async fn get_status(
 ///
 /// Bind a DID to a verified identity.
 async fn bind_did(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
+    Extension(TenantId(tenant_id)): Extension<TenantId>,
     Json(request): Json<BindDidRequest>,
 ) -> impl IntoResponse {
-    // Validate DID format
-    if !request.did.starts_with("did:") {
+    // Validate DID format using crypto-engine parser
+    if Did::parse(&request.did).is_none() {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
-                code: "SAHI_4001".to_string(),
-                message: "Invalid DID format. Must start with 'did:'".to_string(),
+                code: "SAHI_2308".to_string(),
+                message: "Invalid DID format. Expected format: did:method:identifier".to_string(),
             }),
         )
             .into_response();
     }
 
-    // In production:
-    // 1. Look up verification from database
-    // 2. Verify status is 'verified'
-    // 3. Call service.bind_did()
-    // 4. Update verification record
+    let (service, store) = match configured_ekyc_runtime(&state) {
+        Ok(runtime) => runtime,
+        Err(response) => return *response,
+    };
 
-    // For now, return a mock success response
+    let mut verification = match store
+        .get_verification(&tenant_id, &request.verification_id)
+        .await
+    {
+        Ok(Some(verification)) => verification,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    code: "SAHI_2307".to_string(),
+                    message: "Verification record not found".to_string(),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    code: "SAHI_5007".to_string(),
+                    message: format!("Failed to load verification record: {e}"),
+                }),
+            )
+                .into_response()
+        }
+    };
+
+    if let Err(e) = service.bind_did(&mut verification, &request.did) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                code: "SAHI_2309".to_string(),
+                message: format!("Failed to bind DID: {e}"),
+            }),
+        )
+            .into_response();
+    }
+
+    let verification = match store
+        .bind_did(
+            &tenant_id,
+            &request.verification_id,
+            &request.did,
+            verification
+                .did_bound_at
+                .expect("did_bound_at set by bind_did"),
+        )
+        .await
+    {
+        Ok(verification) => verification,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    code: "SAHI_5008".to_string(),
+                    message: format!("Failed to persist DID binding: {e}"),
+                }),
+            )
+                .into_response()
+        }
+    };
+
     (
         StatusCode::OK,
         Json(BindDidResponse {
-            verification_id: request.verification_id,
-            did: request.did,
-            bound_at: chrono::Utc::now().to_rfc3339(),
+            verification_id: verification.id,
+            did: verification.did.expect("did set by bind_did"),
+            bound_at: verification
+                .did_bound_at
+                .expect("did_bound_at set by bind_did")
+                .to_rfc3339(),
         }),
     )
         .into_response()
@@ -275,26 +479,35 @@ async fn bind_did(
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 
-/// Create eKYC service (uses mock config if env vars not set).
-#[allow(clippy::unnecessary_wraps)]
-fn create_ekyc_service() -> Result<EkycService, EkycError> {
-    use crate::services::ekyc::MyDigitalIdConfig;
-
-    // Try to create from environment, fall back to mock for development
-    let config = MyDigitalIdConfig::from_env().unwrap_or_else(|_| {
-        tracing::warn!("MyDigital ID not configured, using mock service");
-        MyDigitalIdConfig {
-            client_id: "mock_client_id".to_string(),
-            client_secret: None,
-            authorization_url: "https://mock.mydigital.gov.my/oauth2/authorize".to_string(),
-            token_url: "https://mock.mydigital.gov.my/oauth2/token".to_string(),
-            userinfo_url: "https://mock.mydigital.gov.my/oauth2/userinfo".to_string(),
-            redirect_uri: "vaultpass://ekyc/callback".to_string(),
-            scope: "openid profile ic_number".to_string(),
-        }
-    });
-
-    Ok(EkycService::new(config))
+fn configured_ekyc_runtime(
+    state: &AppState,
+) -> Result<(Arc<EkycService>, crate::services::ekyc::SharedEkycStore), Box<axum::response::Response>>
+{
+    let Some(service) = state.ekyc_service.clone() else {
+        return Err(Box::new(
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    code: "SAHI_5001".to_string(),
+                    message: "eKYC service is not configured".to_string(),
+                }),
+            )
+                .into_response(),
+        ));
+    };
+    let Some(store) = state.ekyc_store.clone() else {
+        return Err(Box::new(
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    code: "SAHI_5009".to_string(),
+                    message: "eKYC persistence store is not configured".to_string(),
+                }),
+            )
+                .into_response(),
+        ));
+    };
+    Ok((service, store))
 }
 
 #[cfg(test)]
@@ -305,14 +518,30 @@ mod tests {
     use tower::ServiceExt;
 
     fn create_test_app() -> Router {
-        use std::sync::Arc;
+        create_test_app_with_store().0
+    }
+
+    fn create_test_app_with_store() -> (Router, Arc<crate::services::ekyc::InMemoryEkycStore>) {
+        use crate::services::ekyc::InMemoryEkycStore;
         use crypto_engine::kms::SoftwareKmsProvider;
 
+        let store = Arc::new(InMemoryEkycStore::new());
         let state = AppState {
             kms: Arc::new(SoftwareKmsProvider::new()) as Arc<dyn crypto_engine::kms::KmsProvider>,
+            security: crate::state::SecurityConfig::default(),
+            tenant_token_validator: None,
+            ekyc_service: Some(Arc::new(EkycService::new(
+                crate::services::ekyc::MyDigitalIdConfig::mock(),
+            ))),
+            ekyc_store: Some(store.clone()),
         };
 
-        router().with_state(state)
+        (
+            router()
+                .layer(axum::Extension(TenantId("TNT_test".to_string())))
+                .with_state(state),
+            store,
+        )
     }
 
     #[tokio::test]
@@ -323,9 +552,7 @@ mod tests {
             .method("POST")
             .uri("/initiate")
             .header("Content-Type", "application/json")
-            .body(Body::from(
-                r#"{"tenant_id": "TNT_test", "user_id": "USR_test"}"#,
-            ))
+            .body(Body::from(r#"{"user_id": "USR_test"}"#))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
@@ -342,7 +569,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_status() {
+    async fn test_get_status_not_found() {
         let app = create_test_app();
 
         let request = Request::builder()
@@ -352,14 +579,14 @@ mod tests {
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let json: StatusResponse = serde_json::from_slice(&body).unwrap();
+        let json: ErrorResponse = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(json.verification_id, "VRF_01HXYZ");
+        assert_eq!(json.code, "SAHI_2307");
     }
 
     #[tokio::test]
@@ -383,19 +610,154 @@ mod tests {
             .unwrap();
         let json: ErrorResponse = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(json.code, "SAHI_4001");
+        assert_eq!(json.code, "SAHI_2308");
     }
 
     #[tokio::test]
-    async fn test_bind_did_success() {
+    async fn test_bind_did_requires_verified_record() {
         let app = create_test_app();
+
+        let initiate_request = Request::builder()
+            .method("POST")
+            .uri("/initiate")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{"user_id": "USR_test"}"#))
+            .unwrap();
+        let initiate_response = app.clone().oneshot(initiate_request).await.unwrap();
+        let body = axum::body::to_bytes(initiate_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: InitiateVerificationResponse = serde_json::from_slice(&body).unwrap();
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/bind-did")
+            .header("Content-Type", "application/json")
+            .body(Body::from(format!(
+                r#"{{"verification_id": "{}", "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"}}"#,
+                json.verification_id
+            )))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: ErrorResponse = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json.code, "SAHI_2309");
+    }
+
+    #[tokio::test]
+    async fn test_callback_requires_existing_session() {
+        let app = create_test_app();
+
+        let request = Request::builder()
+            .method("POST")
+            .uri("/callback")
+            .header("Content-Type", "application/json")
+            .body(Body::from(
+                r#"{"code":"auth-code","state":"missing","verification_id":"IDV_missing"}"#,
+            ))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: ErrorResponse = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json.code, "SAHI_2304");
+    }
+
+    #[tokio::test]
+    async fn test_get_status_after_initiate() {
+        let app = create_test_app();
+
+        let initiate_request = Request::builder()
+            .method("POST")
+            .uri("/initiate")
+            .header("Content-Type", "application/json")
+            .body(Body::from(r#"{"user_id": "USR_test"}"#))
+            .unwrap();
+        let initiate_response = app.clone().oneshot(initiate_request).await.unwrap();
+        let body = axum::body::to_bytes(initiate_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let initiated: InitiateVerificationResponse = serde_json::from_slice(&body).unwrap();
+
+        let request = Request::builder()
+            .method("GET")
+            .uri(format!("/status/{}", initiated.verification_id))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: StatusResponse = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json.status, "in_progress");
+        assert_eq!(json.assurance_level, "P1");
+        assert_eq!(json.provider, "mydigital_id");
+    }
+
+    #[tokio::test]
+    async fn test_bind_did_success_for_verified_record() {
+        use crate::services::ekyc::EkycStore;
+        use crate::services::ekyc::{
+            AssuranceLevel, IdentityVerification, OAuthSession, VerificationProvider,
+            VerificationStatus,
+        };
+        use chrono::{Duration, Utc};
+
+        let (app, store) = create_test_app_with_store();
+        let now = Utc::now();
+        let verification = IdentityVerification {
+            id: "IDV_test_verified".to_string(),
+            tenant_id: "TNT_test".to_string(),
+            user_id: Some("USR_test".to_string()),
+            status: VerificationStatus::Verified,
+            provider: VerificationProvider::MydigitalId,
+            assurance_level: AssuranceLevel::P2,
+            name_hash: Some("name_hash".to_string()),
+            ic_hash: Some("ic_hash".to_string()),
+            did: None,
+            did_bound_at: None,
+            verified_at: Some(now),
+            expires_at: Some(now + Duration::days(365)),
+            failure_reason: None,
+            created_at: now,
+            updated_at: now,
+        };
+        let session = OAuthSession {
+            id: "OAS_test_verified".to_string(),
+            tenant_id: "TNT_test".to_string(),
+            verification_id: verification.id.clone(),
+            state: "state".to_string(),
+            nonce: "nonce".to_string(),
+            code_verifier: "verifier".to_string(),
+            code_challenge: "challenge".to_string(),
+            redirect_uri: "vaultpass://callback".to_string(),
+            scope: "openid profile ic_number".to_string(),
+            expires_at: now + Duration::minutes(10),
+            created_at: now,
+        };
+        store.create_flow(&verification, &session).await.unwrap();
 
         let request = Request::builder()
             .method("POST")
             .uri("/bind-did")
             .header("Content-Type", "application/json")
             .body(Body::from(
-                r#"{"verification_id": "VRF_test", "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"}"#,
+                r#"{"verification_id":"IDV_test_verified","did":"did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"}"#,
             ))
             .unwrap();
 
@@ -407,7 +769,10 @@ mod tests {
             .unwrap();
         let json: BindDidResponse = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(json.verification_id, "VRF_test");
-        assert!(json.did.starts_with("did:key:"));
+        assert_eq!(json.verification_id, "IDV_test_verified");
+        assert_eq!(
+            json.did,
+            "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+        );
     }
 }

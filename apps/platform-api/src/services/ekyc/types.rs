@@ -101,6 +101,7 @@ pub struct OAuthSession {
     pub tenant_id: String,
     pub verification_id: String,
     pub state: String,
+    pub nonce: String,
     pub code_verifier: String,
     pub code_challenge: String,
     pub redirect_uri: String,

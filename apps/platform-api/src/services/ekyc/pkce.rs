@@ -68,7 +68,9 @@ impl PkceParams {
 }
 
 /// Constant-time byte comparison.
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+///
+/// Prevents timing attacks on security-sensitive comparisons (state, PKCE).
+pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -122,7 +124,10 @@ mod tests {
         ));
 
         // Verification should fail with wrong verifier
-        assert!(!PkceParams::verify("wrong_verifier", &params.code_challenge));
+        assert!(!PkceParams::verify(
+            "wrong_verifier",
+            &params.code_challenge
+        ));
     }
 
     #[test]

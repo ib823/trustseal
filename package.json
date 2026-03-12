@@ -2,10 +2,20 @@
   "name": "sahi",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.23.0",
   "scripts": {
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:api": "playwright test tests/e2e/api.spec.ts",
+    "test:k6": "k6 run tests/k6/smoke.js",
+    "test:k6:load": "k6 run tests/k6/platform-api.js",
     "dev": "turbo run dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "turbo": "2.8.15"
   }
 }

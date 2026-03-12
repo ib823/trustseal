@@ -73,10 +73,7 @@ impl Buzzer {
             return Ok(());
         }
 
-        debug!(
-            "Playing tone: {} Hz for {:?}",
-            frequency, duration
-        );
+        debug!("Playing tone: {} Hz for {:?}", frequency, duration);
 
         self.gpio.set_pwm(self.pin, frequency, self.volume).await?;
         sleep(duration).await;

@@ -23,7 +23,7 @@ pub enum UlidPrefix {
     Request,
     /// SVC_ — Service
     Service,
-    /// CRM_ — Ceremony
+    /// CER_ — Signing Ceremony (TM-1)
     Ceremony,
     /// VRF_ — Verifier
     Verifier,
@@ -43,6 +43,12 @@ pub enum UlidPrefix {
     IdentityVerification,
     /// OAS_ — OAuth Session (VP-9 PKCE)
     OAuthSession,
+    /// DOC_ — Ceremony Document (TM-1)
+    CeremonyDocument,
+    /// SLT_ — Signer Slot (TM-1)
+    SignerSlot,
+    /// TRN_ — Ceremony Transition (TM-1)
+    CeremonyTransition,
 }
 
 impl UlidPrefix {
@@ -59,7 +65,7 @@ impl UlidPrefix {
             Self::Event => "EVT",
             Self::Request => "REQ",
             Self::Service => "SVC",
-            Self::Ceremony => "CRM",
+            Self::Ceremony => "CER",
             Self::Verifier => "VRF",
             Self::Property => "PRY",
             Self::Batch => "BTH",
@@ -69,6 +75,9 @@ impl UlidPrefix {
             Self::Invitation => "INV",
             Self::IdentityVerification => "IDV",
             Self::OAuthSession => "OAS",
+            Self::CeremonyDocument => "DOC",
+            Self::SignerSlot => "SLT",
+            Self::CeremonyTransition => "TRN",
         }
     }
 
@@ -85,7 +94,7 @@ impl UlidPrefix {
             "EVT" => Some(Self::Event),
             "REQ" => Some(Self::Request),
             "SVC" => Some(Self::Service),
-            "CRM" => Some(Self::Ceremony),
+            "CER" => Some(Self::Ceremony),
             "VRF" => Some(Self::Verifier),
             "PRY" => Some(Self::Property),
             "BTH" => Some(Self::Batch),
@@ -95,6 +104,9 @@ impl UlidPrefix {
             "INV" => Some(Self::Invitation),
             "IDV" => Some(Self::IdentityVerification),
             "OAS" => Some(Self::OAuthSession),
+            "DOC" => Some(Self::CeremonyDocument),
+            "SLT" => Some(Self::SignerSlot),
+            "TRN" => Some(Self::CeremonyTransition),
             _ => None,
         }
     }
@@ -245,6 +257,11 @@ mod tests {
             UlidPrefix::Signature,
             UlidPrefix::Tag,
             UlidPrefix::Invitation,
+            UlidPrefix::IdentityVerification,
+            UlidPrefix::OAuthSession,
+            UlidPrefix::CeremonyDocument,
+            UlidPrefix::SignerSlot,
+            UlidPrefix::CeremonyTransition,
         ];
 
         for prefix in prefixes {
@@ -291,8 +308,8 @@ mod tests {
     #[test]
     fn prefix_parse_roundtrip() {
         let prefixes = [
-            "TNT", "USR", "CRD", "PRD", "KEY", "LOG", "EVT", "REQ", "SVC", "CRM", "VRF", "PRY",
-            "BTH", "CRT", "SIG", "TAG", "INV",
+            "TNT", "USR", "CRD", "PRD", "KEY", "LOG", "EVT", "REQ", "SVC", "CER", "VRF", "PRY",
+            "BTH", "CRT", "SIG", "TAG", "INV", "IDV", "OAS", "DOC", "SLT", "TRN",
         ];
         for s in prefixes {
             let prefix = UlidPrefix::parse_prefix(s).unwrap();

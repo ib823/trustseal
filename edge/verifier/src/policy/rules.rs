@@ -95,22 +95,24 @@ impl RuleCondition {
             Self::TimeWindow { start, end, days } => {
                 Self::check_time_window(start, end, days, context.current_time)
             }
-            Self::CredentialType { allowed } => {
-                context.credential_type.as_ref().is_some_and(|ct| allowed.contains(ct))
-            }
-            Self::FloorAccess { floors } => {
-                context.requested_floor.as_ref().is_some_and(|f| floors.contains(f))
-            }
-            Self::HolderDid { dids } => {
-                context.holder_did.as_ref().is_some_and(|did| dids.contains(did))
-            }
-            Self::IssuerDid { issuers } => {
-                context.issuer_did.as_ref().is_some_and(|did| issuers.contains(did))
-            }
+            Self::CredentialType { allowed } => context
+                .credential_type
+                .as_ref()
+                .is_some_and(|ct| allowed.contains(ct)),
+            Self::FloorAccess { floors } => context
+                .requested_floor
+                .as_ref()
+                .is_some_and(|f| floors.contains(f)),
+            Self::HolderDid { dids } => context
+                .holder_did
+                .as_ref()
+                .is_some_and(|did| dids.contains(did)),
+            Self::IssuerDid { issuers } => context
+                .issuer_did
+                .as_ref()
+                .is_some_and(|did| issuers.contains(did)),
             Self::Property { property_id } => context.property_id == *property_id,
-            Self::Zone { zones } => {
-                context.zone_id.as_ref().is_some_and(|z| zones.contains(z))
-            }
+            Self::Zone { zones } => context.zone_id.as_ref().is_some_and(|z| zones.contains(z)),
         }
     }
 

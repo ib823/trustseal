@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS identity_verifications (
     assurance_level TEXT NOT NULL DEFAULT 'P1'
                     CHECK (assurance_level IN ('P1', 'P2', 'P3')),
 
-    -- OAuth state (encrypted, short-lived)
-    oauth_state     TEXT,                       -- PKCE state parameter
-    code_verifier   TEXT,                       -- PKCE code verifier (encrypted at rest)
+    -- Note: PKCE parameters (oauth_state, code_verifier) are stored ONLY in
+    -- the short-lived oauth_sessions table, not here. This prevents sensitive
+    -- PKCE material from persisting beyond the 10-minute OAuth flow window.
 
     -- Verified claims (hashed, never raw PII)
     name_hash       TEXT,                       -- SHA-256 of normalized name
@@ -48,7 +48,6 @@ CREATE POLICY tenant_isolation ON identity_verifications
 CREATE INDEX idx_verifications_tenant ON identity_verifications(tenant_id);
 CREATE INDEX idx_verifications_user ON identity_verifications(user_id);
 CREATE INDEX idx_verifications_status ON identity_verifications(tenant_id, status);
-CREATE INDEX idx_verifications_oauth_state ON identity_verifications(oauth_state) WHERE oauth_state IS NOT NULL;
 CREATE INDEX idx_verifications_did ON identity_verifications(did) WHERE did IS NOT NULL;
 
 -- ─── PKCE SESSIONS TABLE ──────────────────────────────────────────────────

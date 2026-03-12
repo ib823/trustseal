@@ -268,8 +268,8 @@ impl MqttClient {
         data: &T,
         retain: bool,
     ) -> Result<(), MqttError> {
-        let payload = serde_json::to_vec(data)
-            .map_err(|e| MqttError::SerializationError(e.to_string()))?;
+        let payload =
+            serde_json::to_vec(data).map_err(|e| MqttError::SerializationError(e.to_string()))?;
         self.publish(topic, &payload, retain).await
     }
 
@@ -418,7 +418,10 @@ mod tests {
             topics::config_update("VRF_01"),
             "sahi/verifier/VRF_01/config"
         );
-        assert_eq!(topics::heartbeat("VRF_01"), "sahi/verifier/VRF_01/heartbeat");
+        assert_eq!(
+            topics::heartbeat("VRF_01"),
+            "sahi/verifier/VRF_01/heartbeat"
+        );
     }
 
     #[tokio::test]

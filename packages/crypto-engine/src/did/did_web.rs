@@ -48,7 +48,10 @@ pub fn did_to_url(did: &str) -> Result<String, String> {
         .ok_or("Invalid did:web: must start with 'did:web:'")?;
 
     // Remove any fragment
-    let method_specific_id = method_specific_id.split('#').next().unwrap_or(method_specific_id);
+    let method_specific_id = method_specific_id
+        .split('#')
+        .next()
+        .unwrap_or(method_specific_id);
 
     if method_specific_id.is_empty() {
         return Err("Invalid did:web: empty method-specific-id".to_string());
@@ -77,10 +80,8 @@ pub fn did_to_url(did: &str) -> Result<String, String> {
         Ok(format!("{scheme}://{domain}/.well-known/did.json"))
     } else {
         // Has path: decode each segment and join with /
-        let path_segments: Result<Vec<String>, String> = segments[1..]
-            .iter()
-            .map(|s| percent_decode(s))
-            .collect();
+        let path_segments: Result<Vec<String>, String> =
+            segments[1..].iter().map(|s| percent_decode(s)).collect();
         let path = path_segments?.join("/");
         Ok(format!("{scheme}://{domain}/{path}/did.json"))
     }
@@ -170,8 +171,8 @@ pub async fn resolve(did: &str, config: &DidWebConfig) -> Result<DidDocument, St
         return Err(format!("DID document too large: {} bytes", body.len()));
     }
 
-    let doc: DidDocument = serde_json::from_str(&body)
-        .map_err(|e| format!("Invalid DID document JSON: {e}"))?;
+    let doc: DidDocument =
+        serde_json::from_str(&body).map_err(|e| format!("Invalid DID document JSON: {e}"))?;
 
     // Validate that the document ID matches the DID
     let expected_did = did.split('#').next().unwrap_or(did);
@@ -222,7 +223,9 @@ pub fn validate_document(did: &str, doc: &DidDocument) -> Result<(), String> {
     }
 
     // Validate verification method references
-    for rel in doc.authentication.iter()
+    for rel in doc
+        .authentication
+        .iter()
         .chain(doc.assertion_method.iter())
         .chain(doc.key_agreement.iter())
         .chain(doc.capability_invocation.iter())
@@ -231,7 +234,9 @@ pub fn validate_document(did: &str, doc: &DidDocument) -> Result<(), String> {
         if let super::types::VerificationRelationship::Reference(ref_id) = rel {
             // Reference must be resolvable
             if doc.find_verification_method(ref_id).is_none() {
-                return Err(format!("Unresolvable verification method reference: {ref_id}"));
+                return Err(format!(
+                    "Unresolvable verification method reference: {ref_id}"
+                ));
             }
         }
     }
@@ -316,7 +321,9 @@ mod tests {
                 public_key_multibase: None,
                 public_key_base58: None,
             }],
-            authentication: vec![VerificationRelationship::Reference("did:web:example.com#key-1".to_string())],
+            authentication: vec![VerificationRelationship::Reference(
+                "did:web:example.com#key-1".to_string(),
+            )],
             assertion_method: vec![],
             key_agreement: vec![],
             capability_invocation: vec![],

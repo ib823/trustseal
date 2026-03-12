@@ -81,6 +81,12 @@ pub enum ErrorCode {
     CredentialLimitExceeded,
     /// SAHI_2306: Daily issuance limit exceeded
     DailyLimitExceeded,
+    /// SAHI_2307: OAuth state mismatch (CSRF protection)
+    OAuthStateMismatch,
+    /// SAHI_2308: Invalid DID format
+    InvalidDidFormat,
+    /// SAHI_2309: OAuth session expired
+    OAuthSessionExpired,
 
     // ── Signing Ceremony (3000-3099) ────────────────────────────────────
     /// SAHI_3001: Signing ceremony expired
@@ -89,6 +95,40 @@ pub enum ErrorCode {
     InvalidTransition,
     /// SAHI_3003: Document hash mismatch
     DocumentHashMismatch,
+    /// SAHI_3004: Ceremony not found
+    CeremonyNotFound,
+    /// SAHI_3005: Ceremony expired (TM-1 orchestrator variant)
+    CeremonyExpiredOrchestrator,
+    /// SAHI_3006: Invalid ceremony state transition (TM-1)
+    InvalidTransitionOrchestrator,
+    /// SAHI_3007: Signer not found in ceremony
+    SignerNotFound,
+    /// SAHI_3008: Signer cannot sign yet (sequential order)
+    SignerNotReady,
+    /// SAHI_3009: Signer already signed
+    AlreadySigned,
+    /// SAHI_3010: Document hash mismatch on resume
+    DocumentHashMismatchResume,
+    /// SAHI_3011: Not all required signers have completed
+    SignersIncomplete,
+    /// SAHI_3012: WebAuthn verification failed
+    WebAuthnSigningFailed,
+    /// SAHI_3013: Assurance level too low
+    AssuranceLevelTooLow,
+    /// SAHI_3014: Cannot abort ceremony
+    AbortFailed,
+    /// SAHI_3015: Cannot resume ceremony
+    ResumeFailed,
+    /// SAHI_3016: Database error in signing service
+    SigningDatabaseError,
+    /// SAHI_3017: Merkle log error in signing service
+    SigningMerkleLogError,
+    /// SAHI_3018: KMS error in signing service
+    SigningKmsError,
+    /// SAHI_3019: Document processing error
+    DocumentProcessingError,
+    /// SAHI_3020: Timestamp authority error in signing
+    SigningTimestampError,
 
     // ── PAdES (3100-3199) ───────────────────────────────────────────────
     /// SAHI_3100: PDF parsing error
@@ -165,10 +205,30 @@ impl ErrorCode {
             Self::UserBlacklisted => "SAHI_2304",
             Self::CredentialLimitExceeded => "SAHI_2305",
             Self::DailyLimitExceeded => "SAHI_2306",
+            Self::OAuthStateMismatch => "SAHI_2307",
+            Self::InvalidDidFormat => "SAHI_2308",
+            Self::OAuthSessionExpired => "SAHI_2309",
             // Signing Ceremony
             Self::CeremonyExpired => "SAHI_3001",
             Self::InvalidTransition => "SAHI_3002",
             Self::DocumentHashMismatch => "SAHI_3003",
+            Self::CeremonyNotFound => "SAHI_3004",
+            Self::CeremonyExpiredOrchestrator => "SAHI_3005",
+            Self::InvalidTransitionOrchestrator => "SAHI_3006",
+            Self::SignerNotFound => "SAHI_3007",
+            Self::SignerNotReady => "SAHI_3008",
+            Self::AlreadySigned => "SAHI_3009",
+            Self::DocumentHashMismatchResume => "SAHI_3010",
+            Self::SignersIncomplete => "SAHI_3011",
+            Self::WebAuthnSigningFailed => "SAHI_3012",
+            Self::AssuranceLevelTooLow => "SAHI_3013",
+            Self::AbortFailed => "SAHI_3014",
+            Self::ResumeFailed => "SAHI_3015",
+            Self::SigningDatabaseError => "SAHI_3016",
+            Self::SigningMerkleLogError => "SAHI_3017",
+            Self::SigningKmsError => "SAHI_3018",
+            Self::DocumentProcessingError => "SAHI_3019",
+            Self::SigningTimestampError => "SAHI_3020",
             // PAdES
             Self::PdfParseError => "SAHI_3100",
             Self::TsaUnreachable => "SAHI_3101",
@@ -213,10 +273,30 @@ impl ErrorCode {
             | Self::UnitOwnershipExpired
             | Self::UserBlacklisted
             | Self::CredentialLimitExceeded
-            | Self::DailyLimitExceeded => "Compliance",
-            Self::CeremonyExpired | Self::InvalidTransition | Self::DocumentHashMismatch => {
-                "SigningCeremony"
-            }
+            | Self::DailyLimitExceeded
+            | Self::OAuthStateMismatch
+            | Self::InvalidDidFormat
+            | Self::OAuthSessionExpired => "Compliance",
+            Self::CeremonyExpired
+            | Self::InvalidTransition
+            | Self::DocumentHashMismatch
+            | Self::CeremonyNotFound
+            | Self::CeremonyExpiredOrchestrator
+            | Self::InvalidTransitionOrchestrator
+            | Self::SignerNotFound
+            | Self::SignerNotReady
+            | Self::AlreadySigned
+            | Self::DocumentHashMismatchResume
+            | Self::SignersIncomplete
+            | Self::WebAuthnSigningFailed
+            | Self::AssuranceLevelTooLow
+            | Self::AbortFailed
+            | Self::ResumeFailed
+            | Self::SigningDatabaseError
+            | Self::SigningMerkleLogError
+            | Self::SigningKmsError
+            | Self::DocumentProcessingError
+            | Self::SigningTimestampError => "SigningCeremony",
             Self::PdfParseError | Self::TsaUnreachable | Self::AugmentationFailed => "PAdES",
             Self::TokenExpired | Self::SunValidationFailed | Self::TagTampered => "COSE",
             Self::CredentialDenied | Self::OfflineStaleCache | Self::TamperDetected => "Gate",
@@ -351,6 +431,9 @@ mod tests {
             ErrorCode::UserBlacklisted,
             ErrorCode::CredentialLimitExceeded,
             ErrorCode::DailyLimitExceeded,
+            ErrorCode::OAuthStateMismatch,
+            ErrorCode::InvalidDidFormat,
+            ErrorCode::OAuthSessionExpired,
             ErrorCode::CeremonyExpired,
             ErrorCode::InvalidTransition,
             ErrorCode::DocumentHashMismatch,
@@ -376,7 +459,7 @@ mod tests {
                 code.code()
             );
         }
-        assert_eq!(seen.len(), 45, "Expected 45 unique error codes");
+        assert_eq!(seen.len(), 48, "Expected 48 unique error codes");
     }
 
     #[test]

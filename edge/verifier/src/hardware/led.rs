@@ -56,7 +56,11 @@ pub struct Led {
 
 impl Led {
     /// Create a new LED controller.
-    pub async fn new(gpio: Arc<GpioController>, pin: u8, color: LedColor) -> Result<Self, GpioError> {
+    pub async fn new(
+        gpio: Arc<GpioController>,
+        pin: u8,
+        color: LedColor,
+    ) -> Result<Self, GpioError> {
         gpio.configure(pin, PinMode::Output).await?;
 
         Ok(Self {

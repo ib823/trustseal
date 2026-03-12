@@ -6,9 +6,9 @@ use chrono::Utc;
 use sd_jwt_payload::{KeyBindingJwt, SdJwt, Sha256Hasher};
 
 use crate::error::CryptoError;
-use crate::kms::{KeyHandle, KmsProvider};
+use crate::kms::{KeyAlgorithm, KeyHandle, KmsProvider};
 
-use super::signer::KmsSigner;
+use super::signer::{KmsSigner, SigningAlgorithm};
 use super::types::PresentationOptions;
 
 /// SD-JWT holder for deriving presentations.
@@ -77,7 +77,15 @@ impl SdJwtHolder {
 
         // Create the KB-JWT signer
         let key_handle = KeyHandle::new(options.holder_key_handle);
-        let signer = KmsSigner::ed25519(Arc::clone(&self.kms), key_handle);
+        let metadata = self.kms.get_key_metadata(&key_handle).await?;
+        let signing_algorithm = match metadata.algorithm {
+            KeyAlgorithm::Ed25519 => SigningAlgorithm::EdDSA,
+            KeyAlgorithm::EcdsaP256 => SigningAlgorithm::ES256,
+        };
+        let signer = match signing_algorithm {
+            SigningAlgorithm::EdDSA => KmsSigner::ed25519(Arc::clone(&self.kms), key_handle),
+            SigningAlgorithm::ES256 => KmsSigner::es256(Arc::clone(&self.kms), key_handle),
+        };
 
         // Build SD-JWT for KB-JWT (without existing KB-JWT)
         let mut sd_jwt_for_kb = rebuild_with_disclosures(sd_jwt.clone(), &filtered_disclosures);
@@ -88,7 +96,7 @@ impl SdJwtHolder {
             .iat(Utc::now().timestamp())
             .aud(&options.audience)
             .nonce(&options.nonce)
-            .finish(&sd_jwt_for_kb, &hasher, "EdDSA", &signer)
+            .finish(&sd_jwt_for_kb, &hasher, signing_algorithm.as_str(), &signer)
             .await
             .map_err(|e| CryptoError::Internal(format!("Failed to create KB-JWT: {e}")))?;
 
@@ -146,6 +154,7 @@ mod tests {
     use crate::sd_jwt::types::{
         ClaimPath, CredentialSubject, IssuanceOptions, VaultPassCredential,
     };
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::Duration;
 
     #[tokio::test]
@@ -271,5 +280,66 @@ mod tests {
 
         // Should be a valid SD-JWT string with ~ separators
         assert!(presentation_str.contains('~'));
+    }
+
+    #[tokio::test]
+    async fn derive_presentation_uses_es256_for_p256_holder_keys() {
+        let kms: Arc<dyn KmsProvider> = Arc::new(SoftwareKmsProvider::new());
+        let issuer_key = kms
+            .generate_key(KeyAlgorithm::Ed25519, "issuer", None)
+            .await
+            .unwrap();
+        let holder_key = kms
+            .generate_key(KeyAlgorithm::EcdsaP256, "holder-p256", None)
+            .await
+            .unwrap();
+        let holder_public = kms.export_public_key(&holder_key).await.unwrap();
+        let holder_bytes = holder_public.as_bytes();
+        let holder_jwk = HolderKeyBuilder::es256_jwk(&holder_bytes[1..33], &holder_bytes[33..65]);
+
+        let subject = CredentialSubject::new(
+            "did:key:z6Mkh123".to_string(),
+            "PRY_01HXK".to_string(),
+            "visitor".to_string(),
+        );
+        let credential = VaultPassCredential::new(
+            "did:web:issuer.sahi.my".to_string(),
+            subject,
+            Utc::now(),
+            None,
+        );
+
+        let issuer = SdJwtIssuer::new(Arc::clone(&kms));
+        let sd_jwt = issuer
+            .issue(
+                &credential,
+                IssuanceOptions {
+                    key_handle: issuer_key.id().to_string(),
+                    holder_public_key: Some(holder_jwk),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+        let holder = SdJwtHolder::new(Arc::clone(&kms));
+        let presentation = holder
+            .derive_presentation(
+                &sd_jwt,
+                PresentationOptions {
+                    disclosed_claims: vec![],
+                    audience: "aud".to_string(),
+                    nonce: "nonce".to_string(),
+                    holder_key_handle: holder_key.id().to_string(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let kb_jwt = presentation.key_binding_jwt().unwrap().to_string();
+        let header = kb_jwt.split('.').next().unwrap();
+        let header_json: serde_json::Value =
+            serde_json::from_slice(&URL_SAFE_NO_PAD.decode(header).unwrap()).unwrap();
+        assert_eq!(header_json["alg"], "ES256");
     }
 }

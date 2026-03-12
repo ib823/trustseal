@@ -132,8 +132,10 @@ impl Display {
             // }
         }
 
-        let mut initialized = self.initialized.write().await;
-        *initialized = true;
+        {
+            let mut initialized = self.initialized.write().await;
+            *initialized = true;
+        }
 
         self.clear().await?;
 

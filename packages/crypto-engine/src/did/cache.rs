@@ -246,7 +246,9 @@ impl DidCache {
     /// Remove all expired entries.
     pub fn prune_expired(&self) {
         let expired: Vec<String> = {
-            let Ok(entries) = self.entries.read() else { return };
+            let Ok(entries) = self.entries.read() else {
+                return;
+            };
 
             entries
                 .iter()
@@ -281,8 +283,8 @@ pub fn redis_key(did: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::types::{DidContext, VerificationMethod};
+    use super::*;
 
     fn make_test_doc(id: &str) -> DidDocument {
         DidDocument {
@@ -396,7 +398,10 @@ mod tests {
 
     #[test]
     fn redis_key_format() {
-        assert_eq!(redis_key("did:web:example.com"), "did:cache:did:web:example.com");
+        assert_eq!(
+            redis_key("did:web:example.com"),
+            "did:cache:did:web:example.com"
+        );
     }
 
     #[test]

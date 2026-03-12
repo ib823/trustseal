@@ -181,7 +181,10 @@ impl NdefParser {
             offset += record_len;
 
             // Check for Message End flag
-            if ndef_data.get(offset.saturating_sub(record_len)).map_or(false, |b| b & 0x40 != 0) {
+            if ndef_data
+                .get(offset.saturating_sub(record_len))
+                .map_or(false, |b| b & 0x40 != 0)
+            {
                 break;
             }
         }
@@ -207,12 +210,16 @@ impl NdefParser {
 
         let payload_length = if sr {
             if data.len() < 3 {
-                return Err(ApduError::NdefParseError("Missing payload length".to_string()));
+                return Err(ApduError::NdefParseError(
+                    "Missing payload length".to_string(),
+                ));
             }
             data[2] as usize
         } else {
             if data.len() < 6 {
-                return Err(ApduError::NdefParseError("Missing payload length".to_string()));
+                return Err(ApduError::NdefParseError(
+                    "Missing payload length".to_string(),
+                ));
             }
             u32::from_be_bytes([data[2], data[3], data[4], data[5]]) as usize
         };
@@ -254,7 +261,8 @@ impl NdefParser {
         let il = (flags & 0x08) != 0;
         let id_len_byte = if il { 1 } else { 0 };
 
-        1 + 1 + (if sr { 1 } else { 4 })
+        1 + 1
+            + (if sr { 1 } else { 4 })
             + id_len_byte
             + record.record_type.len()
             + record.id.len()

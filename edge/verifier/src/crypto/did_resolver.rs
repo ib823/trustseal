@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -35,7 +36,7 @@ pub struct DidDocument {
     pub id: String,
 
     /// Verification methods.
-    #[serde(default)]
+    #[serde(default, rename = "verificationMethod")]
     pub verification_method: Vec<VerificationMethod>,
 
     /// Authentication methods.
@@ -236,43 +237,50 @@ impl DidResolver {
 
     /// Resolve did:web.
     async fn resolve_did_web(&self, did: &str) -> Result<DidDocument, ResolverError> {
-        // did:web:<domain>[:path...]
-        let parts: Vec<&str> = did.split(':').collect();
-        if parts.len() < 3 {
-            return Err(ResolverError::InvalidFormat(did.to_string()));
+        let url = did_web_to_url(did)?;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| ResolverError::ResolutionFailed(e.to_string()))?;
+        let response = client
+            .get(&url)
+            .header("Accept", "application/did+ld+json, application/json")
+            .send()
+            .await
+            .map_err(|e| ResolverError::ResolutionFailed(e.to_string()))?;
+
+        if !response.status().is_success() {
+            return Err(ResolverError::NotFound(format!(
+                "{did} ({})",
+                response.status()
+            )));
         }
 
-        let domain = parts[2].replace("%3A", ":");
-        let path = if parts.len() > 3 {
-            parts[3..].join("/")
-        } else {
-            ".well-known".to_string()
-        };
+        if let Some(content_length) = response.content_length() {
+            if content_length > 64 * 1024 {
+                return Err(ResolverError::ResolutionFailed(format!(
+                    "DID document too large: {content_length} bytes"
+                )));
+            }
+        }
 
-        let url = format!("https://{}/{}/did.json", domain, path);
+        let body = response
+            .text()
+            .await
+            .map_err(|e| ResolverError::ResolutionFailed(e.to_string()))?;
+        if body.len() > 64 * 1024 {
+            return Err(ResolverError::ResolutionFailed(format!(
+                "DID document too large: {} bytes",
+                body.len()
+            )));
+        }
 
-        // In production, this would fetch from the URL
-        // For now, return a stub document
-        warn!("did:web resolution stubbed for: {}", url);
+        let document: DidDocument = serde_json::from_str(&body).map_err(|e| {
+            ResolverError::ResolutionFailed(format!("Invalid DID document JSON: {e}"))
+        })?;
+        validate_did_web_document(did, &document)?;
 
-        Ok(DidDocument {
-            id: did.to_string(),
-            verification_method: vec![VerificationMethod {
-                id: format!("{}#key-1", did),
-                method_type: "JsonWebKey2020".to_string(),
-                controller: did.to_string(),
-                public_key_jwk: Some(serde_json::json!({
-                    "kty": "EC",
-                    "crv": "P-256",
-                    "x": "stub",
-                    "y": "stub"
-                })),
-                public_key_multibase: None,
-            }],
-            authentication: vec![format!("{}#key-1", did)],
-            assertion_method: vec![format!("{}#key-1", did)],
-            service: Vec::new(),
-        })
+        Ok(document)
     }
 
     /// Resolve did:peer.
@@ -358,9 +366,106 @@ impl Default for DidResolver {
     }
 }
 
+fn did_web_to_url(did: &str) -> Result<String, ResolverError> {
+    let method_specific_id = did
+        .strip_prefix("did:web:")
+        .ok_or_else(|| ResolverError::InvalidFormat(did.to_string()))?;
+    let method_specific_id = method_specific_id
+        .split('#')
+        .next()
+        .unwrap_or(method_specific_id);
+
+    if method_specific_id.is_empty() {
+        return Err(ResolverError::InvalidFormat(did.to_string()));
+    }
+
+    let segments: Vec<&str> = method_specific_id.split(':').collect();
+    let domain = percent_decode(segments[0])?;
+    if domain.is_empty() {
+        return Err(ResolverError::InvalidFormat(did.to_string()));
+    }
+
+    let host = domain.split(':').next().unwrap_or(&domain);
+    let scheme = if is_localhost(host) { "http" } else { "https" };
+
+    if segments.len() == 1 {
+        Ok(format!("{scheme}://{domain}/.well-known/did.json"))
+    } else {
+        let mut path_segments = Vec::with_capacity(segments.len() - 1);
+        for segment in &segments[1..] {
+            path_segments.push(percent_decode(segment)?);
+        }
+        Ok(format!(
+            "{scheme}://{domain}/{}/did.json",
+            path_segments.join("/")
+        ))
+    }
+}
+
+fn percent_decode(segment: &str) -> Result<String, ResolverError> {
+    let mut result = String::with_capacity(segment.len());
+    let mut chars = segment.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '%' {
+            let hex: String = chars.by_ref().take(2).collect();
+            if hex.len() != 2 {
+                return Err(ResolverError::InvalidFormat(segment.to_string()));
+            }
+            let byte = u8::from_str_radix(&hex, 16)
+                .map_err(|_| ResolverError::InvalidFormat(segment.to_string()))?;
+            result.push(byte as char);
+        } else {
+            result.push(ch);
+        }
+    }
+
+    Ok(result)
+}
+
+fn is_localhost(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1")
+}
+
+fn validate_did_web_document(did: &str, document: &DidDocument) -> Result<(), ResolverError> {
+    let expected = did.split('#').next().unwrap_or(did);
+    if document.id != expected {
+        return Err(ResolverError::ResolutionFailed(format!(
+            "DID document ID mismatch: expected {expected}, got {}",
+            document.id
+        )));
+    }
+
+    if document.verification_method.is_empty() {
+        return Err(ResolverError::ResolutionFailed(
+            "DID document has no verification methods".to_string(),
+        ));
+    }
+
+    for method_id in document
+        .authentication
+        .iter()
+        .chain(document.assertion_method.iter())
+    {
+        if !document
+            .verification_method
+            .iter()
+            .any(|method| method.id == *method_id)
+        {
+            return Err(ResolverError::ResolutionFailed(format!(
+                "Unresolvable verification method reference: {method_id}"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
 
     #[tokio::test]
     async fn test_resolve_did_key_ed25519() {
@@ -379,10 +484,43 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_did_web() {
         let resolver = DidResolver::new();
-        let did = "did:web:sahi.my";
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let did = format!("did:web:127.0.0.1%3A{port}");
+        let expected_did = did.clone();
 
-        let doc = resolver.resolve(did).await.unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buffer = [0u8; 2048];
+            let _ = socket.read(&mut buffer).await.unwrap();
+            let body = serde_json::json!({
+                "id": expected_did.clone(),
+                "verificationMethod": [{
+                    "id": format!("{}#key-1", expected_did),
+                    "type": "JsonWebKey2020",
+                    "controller": expected_did.clone(),
+                    "publicKeyJwk": {
+                        "kty": "EC",
+                        "crv": "P-256",
+                        "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                        "y": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    }
+                }],
+                "authentication": [format!("{}#key-1", expected_did.clone())],
+                "assertionMethod": [format!("{}#key-1", expected_did)]
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let doc = resolver.resolve(&did).await.unwrap();
         assert_eq!(doc.id, did);
+        server.await.unwrap();
     }
 
     #[tokio::test]

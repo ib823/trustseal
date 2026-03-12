@@ -40,13 +40,14 @@ use crate::hardware::{Buzzer, GpioController, StatusLeds};
 use crate::mqtt::{MqttClient, MqttConfig};
 use crate::nfc::{NfcEvent, NfcReader};
 use crate::policy::PolicyEngine;
-use crate::revocation::{RevocationCache, RevocationSync, SyncConfig};
+use crate::revocation::{RevocationCache, RevocationError, RevocationSync, SyncConfig};
 
 /// Shared application state.
 pub struct AppState {
     pub config: VerifierConfig,
     pub policy: PolicyEngine,
     pub revocation: Arc<RevocationCache>,
+    pub revocation_sync: Arc<RevocationSync>,
     pub audit: AuditLog,
     pub sd_jwt_verifier: SdJwtVerifier,
 }
@@ -73,7 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Audit log initialized");
 
     // Initialize revocation cache
-    let revocation = Arc::new(RevocationCache::new(config.status_list_ttl));
+    let revocation = Arc::new(RevocationCache::with_stale_threshold(
+        config.status_list_ttl,
+        config.stale_threshold,
+    ));
     info!(
         "Revocation cache initialized (TTL: {}s)",
         config.status_list_ttl.as_secs()
@@ -100,15 +104,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let buzzer = Buzzer::new(gpio.clone(), config.hardware.buzzer_pin).await?;
     info!("Hardware initialized");
 
-    // Create shared state
-    let state = Arc::new(RwLock::new(AppState {
-        config: config.clone(),
-        policy,
-        revocation: revocation.clone(),
-        audit,
-        sd_jwt_verifier,
-    }));
-
     // Start revocation sync
     let sync_config = SyncConfig {
         poll_interval: Duration::from_secs(300),
@@ -123,10 +118,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     };
 
+    // Create shared state
+    let state = Arc::new(RwLock::new(AppState {
+        config: config.clone(),
+        policy,
+        revocation: revocation.clone(),
+        revocation_sync: revocation_sync.clone(),
+        audit,
+        sd_jwt_verifier,
+    }));
+
     // Start MQTT client
     let mqtt_config = MqttConfig {
         broker_url: config.mqtt_broker_url.clone(),
-        client_id: config.mqtt_client_id.clone().unwrap_or_else(|| config.site_id.clone()),
+        client_id: config
+            .mqtt_client_id
+            .clone()
+            .unwrap_or_else(|| config.site_id.clone()),
         ..Default::default()
     };
     let (mqtt_client, mut mqtt_rx) = MqttClient::new(mqtt_config);
@@ -278,11 +286,38 @@ async fn process_presentation(state: &AppState, sd_jwt: &str) -> PresentationRes
 
     // Check revocation status
     if let Some(status) = &verification.status {
-        match state
+        state
+            .revocation_sync
+            .watch(&status.status_list_credential)
+            .await;
+
+        let revocation_status = match state
             .revocation
             .is_revoked(&status.status_list_credential, status.status_list_index)
             .await
         {
+            Ok(value) => Ok(value),
+            Err(RevocationError::NotFound(_)) | Err(RevocationError::StaleCache(_, _)) => {
+                match state
+                    .revocation_sync
+                    .fetch_and_update(&status.status_list_credential)
+                    .await
+                {
+                    Ok(()) => {
+                        state
+                            .revocation
+                            .is_revoked(&status.status_list_credential, status.status_list_index)
+                            .await
+                    }
+                    Err(e) => Err(RevocationError::InvalidFormat(format!(
+                        "status list refresh failed: {e}"
+                    ))),
+                }
+            }
+            Err(err) => Err(err),
+        };
+
+        match revocation_status {
             Ok(true) => {
                 warn!("Credential revoked");
                 return PresentationResponse::revoked("");

@@ -5,5 +5,3 @@ packages:
   - "apps/admin-portal"
   - "apps/guard-tablet"
   - "apps/guest-web"
-  - "apps/trustmark-web"
-  - "apps/verify-web"

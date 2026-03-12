@@ -295,11 +295,7 @@ impl StatusListRegistry {
     ///
     /// # Panics
     /// Panics if the lock is poisoned.
-    pub fn get_or_create(
-        &self,
-        tenant_id: &str,
-        credential_type: &str,
-    ) -> Arc<StatusListManager> {
+    pub fn get_or_create(&self, tenant_id: &str, credential_type: &str) -> Arc<StatusListManager> {
         let key = format!("{tenant_id}:{credential_type}");
 
         // Check if exists
@@ -452,10 +448,7 @@ mod tests {
 
     #[test]
     fn registry_get_or_create() {
-        let registry = StatusListRegistry::new(
-            "https://sahi.my",
-            "did:web:status.sahi.my",
-        );
+        let registry = StatusListRegistry::new("https://sahi.my", "did:web:status.sahi.my");
 
         let manager1 = registry.get_or_create("TNT_01", "ResidentBadge");
         let manager2 = registry.get_or_create("TNT_01", "ResidentBadge");

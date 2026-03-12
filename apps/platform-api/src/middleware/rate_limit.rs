@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::{
+    extract::ConnectInfo,
     extract::Request,
     http::StatusCode,
     middleware::Next,
@@ -81,13 +83,19 @@ impl Bucket {
 pub struct RateLimiter {
     buckets: Arc<Mutex<HashMap<String, Bucket>>>,
     tier: RateLimitTier,
+    trust_proxy_headers: bool,
 }
 
 impl RateLimiter {
     pub fn new(tier: RateLimitTier) -> Self {
+        Self::with_proxy_headers(tier, false)
+    }
+
+    pub fn with_proxy_headers(tier: RateLimitTier, trust_proxy_headers: bool) -> Self {
         Self {
             buckets: Arc::new(Mutex::new(HashMap::new())),
             tier,
+            trust_proxy_headers,
         }
     }
 
@@ -115,14 +123,8 @@ pub async fn rate_limit(request: Request, next: Next) -> Response {
         return next.run(request).await;
     };
 
-    // Use IP from ConnectInfo or forwarded headers
-    let key = request
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .unwrap_or("unknown")
-        .to_string();
+    let key =
+        client_ip(&request, limiter.trust_proxy_headers).unwrap_or_else(|| "unknown".to_string());
 
     match limiter.check(&key).await {
         Ok(()) => next.run(request).await,
@@ -141,4 +143,34 @@ pub async fn rate_limit(request: Request, next: Next) -> Response {
                 .into_response()
         }
     }
+}
+
+fn client_ip(request: &Request, trust_proxy_headers: bool) -> Option<String> {
+    if trust_proxy_headers {
+        if let Some(forwarded) = request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(',').next())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(forwarded.to_string());
+        }
+
+        if let Some(real_ip) = request
+            .headers()
+            .get("x-real-ip")
+            .and_then(|value| value.to_str().ok())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(real_ip.to_string());
+        }
+    }
+
+    request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|connect_info| connect_info.0.ip().to_string())
 }

@@ -12,7 +12,9 @@
 //! - `error` — Platform-wide error code registry (Appendix E)
 //! - `ulid` — ULID factory with typed prefixes (Appendix G)
 //! - `time` — RFC 3339 time utilities
+//! - `auth` — Shared roles and bearer-token auth context
 
+pub mod auth;
 pub mod error;
 pub mod time;
 pub mod ulid;

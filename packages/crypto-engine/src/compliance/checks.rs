@@ -183,12 +183,12 @@ impl ComplianceCheck for UnitOwnershipCheck {
                     .with_details("Lease or ownership period has ended"))
                 }
             }
-            None => Err(ComplianceError::new(
-                "SAHI_2302",
-                "No ownership record found",
-                self.name(),
-            )
-            .with_details("User has no registered ownership for this unit")),
+            None => {
+                Err(
+                    ComplianceError::new("SAHI_2302", "No ownership record found", self.name())
+                        .with_details("User has no registered ownership for this unit"),
+                )
+            }
         }
     }
 
@@ -231,9 +231,7 @@ impl BlacklistCheck {
     /// Panics if the lock is poisoned.
     pub fn remove(&self, user_id: &str, property_id: Option<&str>) {
         let mut entries = self.entries.write().unwrap();
-        entries.retain(|e| {
-            !(e.user_id == user_id && e.property_id.as_deref() == property_id)
-        });
+        entries.retain(|e| !(e.user_id == user_id && e.property_id.as_deref() == property_id));
     }
 
     /// Get active blacklist entries for a user.
@@ -245,9 +243,7 @@ impl BlacklistCheck {
         let entries = self.entries.read().unwrap();
         entries
             .iter()
-            .filter(|e| {
-                e.user_id == user_id && e.is_active() && e.applies_to_property(property_id)
-            })
+            .filter(|e| e.user_id == user_id && e.is_active() && e.applies_to_property(property_id))
             .cloned()
             .collect()
     }
@@ -270,9 +266,7 @@ impl ComplianceCheck for BlacklistCheck {
         let active_entries: Vec<_> = entries
             .iter()
             .filter(|e| {
-                e.user_id == ctx.user_id
-                    && e.is_active()
-                    && e.applies_to_property(&ctx.property_id)
+                e.user_id == ctx.user_id && e.is_active() && e.applies_to_property(&ctx.property_id)
             })
             .collect();
 
@@ -304,9 +298,11 @@ pub struct CredentialLimitCheck {
     /// Credential limit configuration.
     limits: RwLock<std::collections::HashMap<CredentialType, CredentialLimit>>,
     /// Active credential counts (user_id -> type -> count).
-    active_counts: RwLock<std::collections::HashMap<String, std::collections::HashMap<CredentialType, u32>>>,
+    active_counts:
+        RwLock<std::collections::HashMap<String, std::collections::HashMap<CredentialType, u32>>>,
     /// Daily issuance counts (user_id:date -> type -> count).
-    daily_counts: RwLock<std::collections::HashMap<String, std::collections::HashMap<CredentialType, u32>>>,
+    daily_counts:
+        RwLock<std::collections::HashMap<String, std::collections::HashMap<CredentialType, u32>>>,
 }
 
 impl CredentialLimitCheck {
@@ -380,9 +376,7 @@ impl CredentialLimitCheck {
         // Update active count
         {
             let mut active_counts = self.active_counts.write().unwrap();
-            let user_counts = active_counts
-                .entry(user_id.to_string())
-                .or_default();
+            let user_counts = active_counts.entry(user_id.to_string()).or_default();
             *user_counts.entry(credential_type).or_insert(0) += 1;
         }
 

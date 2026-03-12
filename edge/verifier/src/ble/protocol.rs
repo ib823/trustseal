@@ -140,8 +140,7 @@ impl BleProtocol {
 
     /// Encode challenge for BLE transmission.
     pub fn encode_challenge(&self, challenge: &Challenge) -> Result<Vec<u8>, ProtocolError> {
-        serde_json::to_vec(challenge)
-            .map_err(|e| ProtocolError::SerializationError(e.to_string()))
+        serde_json::to_vec(challenge).map_err(|e| ProtocolError::SerializationError(e.to_string()))
     }
 
     /// Decode presentation request from BLE.
@@ -153,8 +152,7 @@ impl BleProtocol {
             });
         }
 
-        serde_json::from_slice(data)
-            .map_err(|e| ProtocolError::InvalidFormat(e.to_string()))
+        serde_json::from_slice(data).map_err(|e| ProtocolError::InvalidFormat(e.to_string()))
     }
 
     /// Validate that the presentation challenge matches.
@@ -187,8 +185,7 @@ impl BleProtocol {
         &self,
         response: &PresentationResponse,
     ) -> Result<Vec<u8>, ProtocolError> {
-        serde_json::to_vec(response)
-            .map_err(|e| ProtocolError::SerializationError(e.to_string()))
+        serde_json::to_vec(response).map_err(|e| ProtocolError::SerializationError(e.to_string()))
     }
 
     /// Clear the current challenge (after use or timeout).

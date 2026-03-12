@@ -1,11 +1,14 @@
 //! SD-JWT verification for edge verifier.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use chrono::DateTime;
+use ring::signature::{self, UnparsedPublicKey};
+use sd_jwt_payload::{SdJwt, Sha256Hasher};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// SD-JWT verification errors.
 #[derive(Debug, Error)]
@@ -138,7 +141,11 @@ impl SdJwtVerifier {
             // Last part might be KB-JWT (doesn't start with 'e' typically for base64)
             let last = parts.last().unwrap_or(&"");
             if last.is_empty() || !last.contains('.') {
-                parts[1..].iter().filter(|s| !s.is_empty()).copied().collect()
+                parts[1..]
+                    .iter()
+                    .filter(|s| !s.is_empty())
+                    .copied()
+                    .collect()
             } else {
                 // Has KB-JWT
                 parts[1..parts.len() - 1]
@@ -186,6 +193,7 @@ impl SdJwtVerifier {
         // Get issuer
         let issuer_did = payload["iss"]
             .as_str()
+            .or_else(|| payload["issuer"].as_str())
             .ok_or(VerificationError::InvalidFormat)?
             .to_string();
 
@@ -200,11 +208,13 @@ impl SdJwtVerifier {
         self.verify_signature(issuer_jwt, &did_doc, alg)?;
 
         // Process disclosures
-        let disclosed_claims = self.process_disclosures(&payload, &disclosures)?;
+        let disclosed_claims = Self::resolve_disclosures(sd_jwt)?;
+        let presentation_without_kb =
+            Self::presentation_without_key_binding(issuer_jwt, &disclosures);
 
         // Verify key binding if present
         let holder_did = if let Some(kb) = kb_jwt {
-            self.verify_key_binding(kb, &payload, nonce, audience)
+            self.verify_key_binding(kb, &payload, nonce, audience, &presentation_without_kb)
                 .await?
         } else {
             // Try to get holder from cnf claim
@@ -212,9 +222,9 @@ impl SdJwtVerifier {
         };
 
         // Check expiration
-        let exp = payload["exp"].as_i64();
-        let nbf = payload["nbf"].as_i64();
-        let iat = payload["iat"].as_i64();
+        let exp = Self::extract_timestamp(&disclosed_claims, &["exp"], &["validUntil"]);
+        let nbf = Self::extract_timestamp(&disclosed_claims, &["nbf"], &["validFrom"]);
+        let iat = Self::extract_timestamp(&disclosed_claims, &["iat"], &["issuedAt"]);
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -234,17 +244,10 @@ impl SdJwtVerifier {
         }
 
         // Extract credential type
-        let credential_type = disclosed_claims["vct"]
-            .as_str()
-            .or_else(|| disclosed_claims["type"].as_str())
-            .map(String::from);
+        let credential_type = Self::extract_credential_type(&disclosed_claims);
 
         // Extract status
-        let status = if let Some(status_obj) = disclosed_claims.get("status") {
-            serde_json::from_value(status_obj.clone()).ok()
-        } else {
-            None
-        };
+        let status = Self::extract_status(&disclosed_claims);
 
         Ok(VerificationResult {
             issuer_did,
@@ -265,98 +268,108 @@ impl SdJwtVerifier {
 
     fn verify_signature(
         &self,
-        _jwt: &str,
-        _did_doc: &super::did_resolver::DidDocument,
+        jwt: &str,
+        did_doc: &super::did_resolver::DidDocument,
         alg: &str,
     ) -> Result<(), VerificationError> {
-        // Stub: In production, this would:
-        // 1. Get the verification method from DID document
-        // 2. Extract the public key
-        // 3. Verify the JWT signature using the appropriate algorithm
-
-        match alg {
-            "ES256" | "ES384" | "EdDSA" => {
-                warn!("Signature verification stubbed - would verify {} signature", alg);
-                Ok(())
-            }
-            _ => Err(VerificationError::UnsupportedAlgorithm(alg.to_string())),
-        }
+        let method = Self::select_verification_method(
+            did_doc,
+            did_doc.assertion_method.first().map(String::as_str),
+            false,
+        )?;
+        let key = Self::verification_key_from_method(method)?;
+        Self::verify_jws_signature(jwt, alg, &key)
     }
 
-    fn process_disclosures(
-        &self,
-        payload: &Value,
-        disclosures: &[&str],
-    ) -> Result<Value, VerificationError> {
-        let mut result = payload.clone();
+    fn resolve_disclosures(presentation: &str) -> Result<Value, VerificationError> {
+        let sd_jwt = SdJwt::parse(presentation)
+            .map_err(|e| VerificationError::InvalidDisclosure(e.to_string()))?;
+        let disclosed = sd_jwt
+            .into_disclosed_object(&Sha256Hasher::new())
+            .map_err(|e| VerificationError::InvalidDisclosure(e.to_string()))?;
+        Ok(Value::Object(disclosed))
+    }
 
-        // Build disclosure hash map
-        let mut disclosure_map: std::collections::HashMap<String, Value> =
-            std::collections::HashMap::new();
+    fn extract_credential_type(claims: &Value) -> Option<String> {
+        if let Some(vct) = claims.get("vct").and_then(Value::as_str) {
+            return Some(vct.to_string());
+        }
 
-        for disclosure in disclosures {
-            let bytes = URL_SAFE_NO_PAD
-                .decode(disclosure)
-                .map_err(|_| VerificationError::InvalidDisclosure(disclosure.to_string()))?;
+        if let Some(claim_type) = claims.get("type") {
+            if let Some(as_str) = claim_type.as_str() {
+                return Some(as_str.to_string());
+            }
 
-            let disclosure_array: Value = serde_json::from_slice(&bytes)
-                .map_err(|_| VerificationError::InvalidDisclosure(disclosure.to_string()))?;
-
-            // Calculate hash
-            let hash = {
-                let mut hasher = Sha256::new();
-                hasher.update(disclosure.as_bytes());
-                URL_SAFE_NO_PAD.encode(hasher.finalize())
-            };
-
-            // Disclosure format: [salt, claim_name, claim_value] or [salt, array_element]
-            if let Some(arr) = disclosure_array.as_array() {
-                if arr.len() == 3 {
-                    // Object property disclosure
-                    let claim_name = arr[1]
-                        .as_str()
-                        .ok_or_else(|| VerificationError::InvalidDisclosure(disclosure.to_string()))?;
-                    let claim_value = arr[2].clone();
-                    disclosure_map.insert(hash.clone(), serde_json::json!({
-                        "name": claim_name,
-                        "value": claim_value
-                    }));
-                } else if arr.len() == 2 {
-                    // Array element disclosure
-                    disclosure_map.insert(hash.clone(), arr[1].clone());
-                }
+            if let Some(as_array) = claim_type.as_array() {
+                return as_array
+                    .iter()
+                    .rev()
+                    .filter_map(Value::as_str)
+                    .find(|value| *value != "VerifiableCredential")
+                    .or_else(|| as_array.iter().find_map(Value::as_str))
+                    .map(str::to_string);
             }
         }
 
-        // Collect disclosed claims to add
-        let mut claims_to_add: Vec<(String, Value)> = Vec::new();
+        None
+    }
 
-        if let Some(sd_claims) = result.get("_sd").and_then(|v| v.as_array()) {
-            for hash in sd_claims {
-                if let Some(hash_str) = hash.as_str() {
-                    if let Some(disclosure) = disclosure_map.get(hash_str) {
-                        if let Some(obj) = disclosure.as_object() {
-                            if let (Some(name), Some(value)) = (obj.get("name"), obj.get("value")) {
-                                if let Some(name_str) = name.as_str() {
-                                    claims_to_add.push((name_str.to_string(), value.clone()));
-                                }
-                            }
-                        }
-                    }
-                }
+    fn extract_status(claims: &Value) -> Option<CredentialStatus> {
+        let status_obj = claims
+            .get("credentialStatus")
+            .or_else(|| claims.get("status"))?
+            .as_object()?;
+
+        let status_list_credential = status_obj
+            .get("statusListCredential")
+            .or_else(|| status_obj.get("status_list_credential"))
+            .and_then(Value::as_str)?
+            .to_string();
+        let status_purpose = status_obj
+            .get("statusPurpose")
+            .or_else(|| status_obj.get("status_purpose"))
+            .and_then(Value::as_str)?
+            .to_string();
+        let status_list_index = status_obj
+            .get("statusListIndex")
+            .or_else(|| status_obj.get("status_list_index"))
+            .and_then(|value| {
+                value
+                    .as_u64()
+                    .and_then(|number| usize::try_from(number).ok())
+                    .or_else(|| value.as_str()?.parse::<usize>().ok())
+            })?;
+
+        Some(CredentialStatus {
+            status_list_credential,
+            status_list_index,
+            status_purpose,
+        })
+    }
+
+    fn extract_timestamp(
+        claims: &Value,
+        numeric_keys: &[&str],
+        rfc3339_keys: &[&str],
+    ) -> Option<i64> {
+        for key in numeric_keys {
+            if let Some(timestamp) = claims.get(*key).and_then(Value::as_i64) {
+                return Some(timestamp);
             }
         }
 
-        // Apply disclosed claims and remove _sd/_sd_alg
-        if let Some(obj) = result.as_object_mut() {
-            for (name, value) in claims_to_add {
-                obj.insert(name, value);
+        for key in rfc3339_keys {
+            if let Some(timestamp) = claims
+                .get(*key)
+                .and_then(Value::as_str)
+                .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+                .map(|value| value.timestamp())
+            {
+                return Some(timestamp);
             }
-            obj.remove("_sd");
-            obj.remove("_sd_alg");
         }
 
-        Ok(result)
+        None
     }
 
     async fn verify_key_binding(
@@ -365,14 +378,18 @@ impl SdJwtVerifier {
         issuer_payload: &Value,
         expected_nonce: Option<&str>,
         expected_aud: Option<&str>,
+        presentation_without_kb: &str,
     ) -> Result<Option<String>, VerificationError> {
         let parts: Vec<&str> = kb_jwt.split('.').collect();
         if parts.len() != 3 {
             return Err(VerificationError::InvalidKeyBinding);
         }
 
-        let _header: Value = Self::decode_jwt_part(parts[0])?;
+        let header: Value = Self::decode_jwt_part(parts[0])?;
         let payload: Value = Self::decode_jwt_part(parts[1])?;
+        let alg = header["alg"]
+            .as_str()
+            .ok_or(VerificationError::InvalidKeyBinding)?;
 
         // Verify nonce if provided
         if let Some(nonce) = expected_nonce {
@@ -390,22 +407,229 @@ impl SdJwtVerifier {
             }
         }
 
-        // Get holder DID from cnf claim in issuer JWT
+        let sd_hash = payload["sd_hash"]
+            .as_str()
+            .ok_or(VerificationError::InvalidKeyBinding)?;
+        let expected_sd_hash =
+            URL_SAFE_NO_PAD.encode(Sha256::digest(presentation_without_kb.as_bytes()));
+        if sd_hash != expected_sd_hash {
+            return Err(VerificationError::InvalidKeyBinding);
+        }
+
         let holder_did = issuer_payload["cnf"]["kid"]
             .as_str()
             .or_else(|| issuer_payload["sub"].as_str())
             .map(String::from);
 
-        // In production, would verify KB-JWT signature against holder's key
-        warn!("Key binding verification stubbed");
+        let key = self
+            .resolve_holder_key(issuer_payload)
+            .await?
+            .ok_or(VerificationError::InvalidKeyBinding)?;
+        Self::verify_jws_signature(kb_jwt, alg, &key)
+            .map_err(|_| VerificationError::InvalidKeyBinding)?;
 
         Ok(holder_did)
     }
+
+    fn presentation_without_key_binding(issuer_jwt: &str, disclosures: &[&str]) -> String {
+        if disclosures.is_empty() {
+            format!("{issuer_jwt}~")
+        } else {
+            format!("{issuer_jwt}~{}~", disclosures.join("~"))
+        }
+    }
+
+    async fn resolve_holder_key(
+        &self,
+        issuer_payload: &Value,
+    ) -> Result<Option<VerificationKey>, VerificationError> {
+        if let Some(jwk) = issuer_payload.get("cnf").and_then(|cnf| cnf.get("jwk")) {
+            return Ok(Some(Self::verification_key_from_jwk(jwk)?));
+        }
+
+        let holder_reference = issuer_payload
+            .get("cnf")
+            .and_then(|cnf| cnf.get("kid"))
+            .and_then(Value::as_str)
+            .or_else(|| issuer_payload.get("sub").and_then(Value::as_str));
+
+        let Some(holder_reference) = holder_reference else {
+            return Ok(None);
+        };
+        if !holder_reference.starts_with("did:") {
+            return Ok(None);
+        }
+
+        let did_doc = self
+            .resolver
+            .resolve(holder_reference)
+            .await
+            .map_err(|e| VerificationError::DidResolutionFailed(e.to_string()))?;
+        let method = Self::select_verification_method(&did_doc, Some(holder_reference), true)?;
+        Ok(Some(Self::verification_key_from_method(method)?))
+    }
+
+    fn verify_jws_signature(
+        jwt: &str,
+        alg: &str,
+        key: &VerificationKey,
+    ) -> Result<(), VerificationError> {
+        let parts: Vec<&str> = jwt.split('.').collect();
+        if parts.len() != 3 {
+            return Err(VerificationError::InvalidFormat);
+        }
+
+        let signing_input = format!("{}.{}", parts[0], parts[1]);
+        let signature = URL_SAFE_NO_PAD.decode(parts[2])?;
+
+        match (alg, key) {
+            ("EdDSA", VerificationKey::Ed25519(public_key)) => {
+                let verifier = UnparsedPublicKey::new(&signature::ED25519, public_key);
+                verifier
+                    .verify(signing_input.as_bytes(), &signature)
+                    .map_err(|_| VerificationError::SignatureVerificationFailed)
+            }
+            ("ES256", VerificationKey::P256(public_key)) => {
+                let verifier =
+                    UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_FIXED, public_key);
+                verifier
+                    .verify(signing_input.as_bytes(), &signature)
+                    .map_err(|_| VerificationError::SignatureVerificationFailed)
+            }
+            ("EdDSA", _) | ("ES256", _) => Err(VerificationError::InvalidSignature),
+            _ => Err(VerificationError::UnsupportedAlgorithm(alg.to_string())),
+        }
+    }
+
+    fn select_verification_method<'a>(
+        did_doc: &'a super::did_resolver::DidDocument,
+        preferred_id: Option<&str>,
+        prefer_authentication: bool,
+    ) -> Result<&'a super::did_resolver::VerificationMethod, VerificationError> {
+        if let Some(preferred_id) = preferred_id {
+            if let Some(method) = did_doc
+                .verification_method
+                .iter()
+                .find(|method| method.id == preferred_id)
+            {
+                return Ok(method);
+            }
+        }
+
+        let relationship_ids = if prefer_authentication {
+            &did_doc.authentication
+        } else {
+            &did_doc.assertion_method
+        };
+
+        for method_id in relationship_ids {
+            if let Some(method) = did_doc
+                .verification_method
+                .iter()
+                .find(|candidate| candidate.id == *method_id)
+            {
+                return Ok(method);
+            }
+        }
+
+        did_doc.verification_method.first().ok_or_else(|| {
+            VerificationError::DidResolutionFailed("No verification method found".to_string())
+        })
+    }
+
+    fn verification_key_from_method(
+        method: &super::did_resolver::VerificationMethod,
+    ) -> Result<VerificationKey, VerificationError> {
+        if let Some(jwk) = &method.public_key_jwk {
+            return Self::verification_key_from_jwk(jwk);
+        }
+
+        if let Some(multibase) = &method.public_key_multibase {
+            return Self::verification_key_from_multibase(multibase);
+        }
+
+        Err(VerificationError::DidResolutionFailed(
+            "Verification method does not contain a supported key format".to_string(),
+        ))
+    }
+
+    fn verification_key_from_jwk(jwk: &Value) -> Result<VerificationKey, VerificationError> {
+        let kty = jwk.get("kty").and_then(Value::as_str).unwrap_or_default();
+        let crv = jwk.get("crv").and_then(Value::as_str).unwrap_or_default();
+
+        match (kty, crv) {
+            ("OKP", "Ed25519") => {
+                let x = jwk
+                    .get("x")
+                    .and_then(Value::as_str)
+                    .ok_or(VerificationError::InvalidSignature)?;
+                let key = URL_SAFE_NO_PAD.decode(x)?;
+                Ok(VerificationKey::Ed25519(key))
+            }
+            ("EC", "P-256") => {
+                let x = jwk
+                    .get("x")
+                    .and_then(Value::as_str)
+                    .ok_or(VerificationError::InvalidSignature)?;
+                let y = jwk
+                    .get("y")
+                    .and_then(Value::as_str)
+                    .ok_or(VerificationError::InvalidSignature)?;
+                let x = URL_SAFE_NO_PAD.decode(x)?;
+                let y = URL_SAFE_NO_PAD.decode(y)?;
+                let mut key = vec![0x04];
+                key.extend_from_slice(&x);
+                key.extend_from_slice(&y);
+                Ok(VerificationKey::P256(key))
+            }
+            _ => Err(VerificationError::InvalidSignature),
+        }
+    }
+
+    fn verification_key_from_multibase(
+        multibase: &str,
+    ) -> Result<VerificationKey, VerificationError> {
+        let encoded = multibase
+            .strip_prefix('z')
+            .ok_or(VerificationError::InvalidSignature)?;
+        let decoded = bs58::decode(encoded)
+            .into_vec()
+            .map_err(|_| VerificationError::InvalidSignature)?;
+        if decoded.len() < 3 {
+            return Err(VerificationError::InvalidSignature);
+        }
+
+        match (decoded[0], decoded[1]) {
+            (0xed, 0x01) => Ok(VerificationKey::Ed25519(decoded[2..].to_vec())),
+            (0x80, 0x24) => {
+                let raw_key = decoded[2..].to_vec();
+                if raw_key.len() == 65 && raw_key.first() == Some(&0x04) {
+                    Ok(VerificationKey::P256(raw_key))
+                } else {
+                    Err(VerificationError::InvalidSignature)
+                }
+            }
+            _ => Err(VerificationError::InvalidSignature),
+        }
+    }
+}
+
+enum VerificationKey {
+    Ed25519(Vec<u8>),
+    P256(Vec<u8>),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{Duration, Utc};
+    use crypto_engine::did::from_ed25519_public_key;
+    use crypto_engine::kms::{KeyAlgorithm, KmsProvider, SoftwareKmsProvider};
+    use crypto_engine::sd_jwt::{
+        ClaimPath, CredentialSubject, HolderKeyBuilder, IssuanceOptions, PresentationOptions,
+        SdJwtHolder, SdJwtIssuer, VaultPassCredential,
+    };
+    use std::sync::Arc;
 
     fn create_test_verifier() -> SdJwtVerifier {
         let resolver = super::super::did_resolver::DidResolver::new();
@@ -458,5 +682,90 @@ mod tests {
         let status: CredentialStatus = serde_json::from_value(json).unwrap();
         assert_eq!(status.status_list_index, 42);
         assert_eq!(status.status_purpose, "revocation");
+    }
+
+    #[test]
+    fn test_extract_credential_type_from_vc_type_array() {
+        let claims = serde_json::json!({
+            "type": ["VerifiableCredential", "AccessBadge"]
+        });
+
+        assert_eq!(
+            SdJwtVerifier::extract_credential_type(&claims).as_deref(),
+            Some("AccessBadge")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_signed_presentation() {
+        let kms: Arc<dyn KmsProvider> = Arc::new(SoftwareKmsProvider::new());
+        let issuer_key = kms
+            .generate_key(KeyAlgorithm::Ed25519, "issuer", None)
+            .await
+            .unwrap();
+        let issuer_public = kms.export_public_key(&issuer_key).await.unwrap();
+        let issuer_did = from_ed25519_public_key(issuer_public.as_bytes());
+
+        let holder_key = kms
+            .generate_key(KeyAlgorithm::Ed25519, "holder", None)
+            .await
+            .unwrap();
+        let holder_public = kms.export_public_key(&holder_key).await.unwrap();
+        let holder_jwk = HolderKeyBuilder::ed25519_jwk(holder_public.as_bytes());
+
+        let credential = VaultPassCredential::new(
+            issuer_did,
+            CredentialSubject {
+                id: "did:key:z6Mkh123".to_string(),
+                property_id: "PRY_01HXK".to_string(),
+                unit: Some("12-03".to_string()),
+                name: Some("Test User".to_string()),
+                role: "resident".to_string(),
+                access_zones: vec!["lobby".to_string()],
+                time_restrictions: None,
+            },
+            Utc::now(),
+            Some(Utc::now() + Duration::days(30)),
+        );
+
+        let issuer = SdJwtIssuer::new(Arc::clone(&kms));
+        let sd_jwt = issuer
+            .issue(
+                &credential,
+                IssuanceOptions {
+                    key_handle: issuer_key.id().to_string(),
+                    concealable_claims: vec![ClaimPath::new(ClaimPath::NAME)],
+                    decoy_count: 1,
+                    holder_public_key: Some(holder_jwk),
+                },
+            )
+            .await
+            .unwrap();
+
+        let holder = SdJwtHolder::new(Arc::clone(&kms));
+        let presentation = holder
+            .derive_presentation_serialized(
+                &sd_jwt,
+                PresentationOptions {
+                    disclosed_claims: vec![ClaimPath::new(ClaimPath::NAME)],
+                    audience: "VRF_site".to_string(),
+                    nonce: "nonce-123".to_string(),
+                    holder_key_handle: holder_key.id().to_string(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let resolver = super::super::did_resolver::DidResolver::new();
+        let verifier = SdJwtVerifier::new(resolver);
+        let result = verifier
+            .verify(&presentation, Some("nonce-123"), Some("VRF_site"))
+            .await
+            .unwrap();
+
+        assert_eq!(result.issuer_did, credential.issuer);
+        assert_eq!(result.holder_did, None);
+        assert_eq!(result.credential_type.as_deref(), Some("AccessBadge"));
+        assert_eq!(result.claims["credentialSubject"]["name"], "Test User");
     }
 }

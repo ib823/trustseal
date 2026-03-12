@@ -3,5 +3,5 @@
 mod cache;
 mod sync;
 
-pub use cache::RevocationCache;
+pub use cache::{RevocationCache, RevocationError};
 pub use sync::{RevocationSync, SyncConfig};

@@ -7,9 +7,7 @@
 
 use serde_json::json;
 
-use super::types::{
-    DidContext, DidDocument, VerificationMethod, VerificationRelationship,
-};
+use super::types::{DidContext, DidDocument, VerificationMethod, VerificationRelationship};
 
 /// Multicodec prefixes for key types.
 mod multicodec {
@@ -111,7 +109,12 @@ pub fn resolve(did: &str) -> Result<DidDocument, String> {
         multicodec::X25519_PUB => (KeyType::X25519, 32),
         multicodec::P256_PUB => (KeyType::P256, 33), // Compressed point
         multicodec::SECP256K1_PUB => (KeyType::Secp256k1, 33), // Compressed point
-        _ => return Err(format!("Unsupported multicodec prefix: {:02x}{:02x}", prefix[0], prefix[1])),
+        _ => {
+            return Err(format!(
+                "Unsupported multicodec prefix: {:02x}{:02x}",
+                prefix[0], prefix[1]
+            ))
+        }
     };
 
     // Validate key length (P-256/secp256k1 can be 33 compressed or 65 uncompressed)
@@ -198,7 +201,10 @@ fn build_did_document(
         // For now, just use the Ed25519 key
         (vec![verification_method.clone()], vec![])
     } else if key_type == KeyType::X25519 {
-        (vec![verification_method.clone()], vec![VerificationRelationship::Reference(key_id.clone())])
+        (
+            vec![verification_method.clone()],
+            vec![VerificationRelationship::Reference(key_id.clone())],
+        )
     } else {
         (vec![verification_method.clone()], vec![])
     };
@@ -327,10 +333,9 @@ mod tests {
     #[test]
     fn roundtrip_ed25519() {
         let public_key = [
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
-            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-            0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+            0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20,
         ];
 
         let did = from_ed25519_public_key(&public_key);
@@ -397,6 +402,8 @@ mod tests {
 
         let result = resolve(&did);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Compressed EC points not supported"));
+        assert!(result
+            .unwrap_err()
+            .contains("Compressed EC points not supported"));
     }
 }

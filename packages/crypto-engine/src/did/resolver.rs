@@ -50,8 +50,8 @@ impl Default for ResolverConfig {
     fn default() -> Self {
         Self {
             did_web: DidWebConfig::default(),
-            did_key_ttl: Duration::from_secs(300),      // 5 min per spec (L1 TTL)
-            did_web_ttl: Duration::from_secs(3600),     // 1 hour per spec
+            did_key_ttl: Duration::from_secs(300), // 5 min per spec (L1 TTL)
+            did_web_ttl: Duration::from_secs(3600), // 1 hour per spec
             enable_cache: true,
             cache_capacity: 100,
         }
@@ -118,15 +118,19 @@ impl DidResolver {
         if self.config.enable_cache {
             if let Some(doc) = self.cache.get(cache_key) {
                 debug!("Cache hit for {}", cache_key);
-                return Ok(ResolutionResult::success(doc, duration_to_millis(start.elapsed()), true));
+                return Ok(ResolutionResult::success(
+                    doc,
+                    duration_to_millis(start.elapsed()),
+                    true,
+                ));
             }
         }
 
         // Parse DID to determine method
         let parsed = Did::from(did);
-        let method = parsed.method().ok_or_else(|| {
-            CryptoError::Internal(format!("Invalid DID format: {did}"))
-        })?;
+        let method = parsed
+            .method()
+            .ok_or_else(|| CryptoError::Internal(format!("Invalid DID format: {did}")))?;
 
         // Resolve based on method
         let (doc, ttl) = match method {
@@ -145,7 +149,7 @@ impl DidResolver {
             }
             "peer" => {
                 return Err(CryptoError::Internal(
-                    "did:peer resolution not implemented (Phase 2)".to_string()
+                    "did:peer resolution not implemented (Phase 2)".to_string(),
                 ));
             }
             _ => {
@@ -223,18 +227,18 @@ impl DidResolver {
         purpose: VerificationPurpose,
     ) -> Result<Vec<u8>, CryptoError> {
         let result = self.resolve(did)?;
-        let doc = result.document.ok_or_else(|| {
-            CryptoError::Internal("Resolution returned no document".to_string())
-        })?;
+        let doc = result
+            .document
+            .ok_or_else(|| CryptoError::Internal("Resolution returned no document".to_string()))?;
 
         let methods = doc.verification_methods_for_purpose(purpose);
         let method = methods.first().ok_or_else(|| {
             CryptoError::Internal(format!("No verification method for {purpose:?}"))
         })?;
 
-        method.public_key_bytes().map_err(|e| {
-            CryptoError::Internal(format!("Failed to extract public key: {e}"))
-        })
+        method
+            .public_key_bytes()
+            .map_err(|e| CryptoError::Internal(format!("Failed to extract public key: {e}")))
     }
 
     /// Resolve issuer public key for SD-JWT verification.
@@ -286,14 +290,18 @@ impl AsyncDidResolver {
         if self.inner.config.enable_cache {
             if let Some(doc) = self.inner.cache.get(cache_key) {
                 debug!("Cache hit for {}", cache_key);
-                return Ok(ResolutionResult::success(doc, duration_to_millis(start.elapsed()), true));
+                return Ok(ResolutionResult::success(
+                    doc,
+                    duration_to_millis(start.elapsed()),
+                    true,
+                ));
             }
         }
 
         let parsed = Did::from(did);
-        let method = parsed.method().ok_or_else(|| {
-            CryptoError::Internal(format!("Invalid DID format: {did}"))
-        })?;
+        let method = parsed
+            .method()
+            .ok_or_else(|| CryptoError::Internal(format!("Invalid DID format: {did}")))?;
 
         let (doc, ttl) = match method {
             "key" => {
@@ -305,21 +313,23 @@ impl AsyncDidResolver {
             "web" => {
                 #[cfg(feature = "http")]
                 {
-                    let doc = did_web::resolve(did, &self.inner.config.did_web).await.map_err(|e| {
-                        CryptoError::Internal(format!("did:web resolution failed: {e}"))
-                    })?;
+                    let doc = did_web::resolve(did, &self.inner.config.did_web)
+                        .await
+                        .map_err(|e| {
+                            CryptoError::Internal(format!("did:web resolution failed: {e}"))
+                        })?;
                     (doc, self.inner.config.did_web_ttl)
                 }
                 #[cfg(not(feature = "http"))]
                 {
                     return Err(CryptoError::Internal(
-                        "did:web resolution requires 'http' feature".to_string()
+                        "did:web resolution requires 'http' feature".to_string(),
                     ));
                 }
             }
             "peer" => {
                 return Err(CryptoError::Internal(
-                    "did:peer resolution not implemented (Phase 2)".to_string()
+                    "did:peer resolution not implemented (Phase 2)".to_string(),
                 ));
             }
             _ => {
@@ -331,7 +341,9 @@ impl AsyncDidResolver {
 
         // Cache the result
         if self.inner.config.enable_cache {
-            self.inner.cache.insert_with_ttl(cache_key, doc.clone(), ttl);
+            self.inner
+                .cache
+                .insert_with_ttl(cache_key, doc.clone(), ttl);
         }
 
         let duration_ms = duration_to_millis(start.elapsed());
@@ -429,7 +441,8 @@ mod tests {
     fn register_and_retrieve_document() {
         let resolver = DidResolver::default();
 
-        let doc = did_key::resolve("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK").unwrap();
+        let doc =
+            did_key::resolve("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK").unwrap();
 
         // Register under a different DID (simulating did:web)
         resolver.register_document("did:web:example.com", doc.clone(), Duration::from_secs(60));

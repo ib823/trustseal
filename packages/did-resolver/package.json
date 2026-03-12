@@ -6,8 +6,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc src/index.ts --declaration --outDir dist --module esnext --target es2022",
     "lint": "eslint src/",
     "test": "echo 'no tests yet'"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
   }
 }

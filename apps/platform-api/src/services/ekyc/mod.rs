@@ -21,6 +21,7 @@
 
 pub mod mydigital_id;
 pub mod pkce;
+pub mod store;
 pub mod types;
 
 use chrono::{Duration, Utc};
@@ -28,7 +29,8 @@ use sahi_core::ulid::{TypedUlid, UlidPrefix};
 
 pub use mydigital_id::{MyDigitalIdClient, MyDigitalIdConfig, MyDigitalIdError};
 #[allow(unused_imports)]
-pub use pkce::PkceParams;
+pub use pkce::{constant_time_eq, PkceParams};
+pub use store::{EkycStore, InMemoryEkycStore, PostgresEkycStore, SharedEkycStore};
 pub use types::{
     AssuranceLevel, IdentityVerification, OAuthSession, VerificationProvider, VerificationStatus,
     VerifiedClaims,
@@ -66,7 +68,7 @@ impl EkycService {
 
         // Generate OAuth session
         let session_id = TypedUlid::new(UlidPrefix::OAuthSession);
-        let (authorization_url, pkce) = self
+        let (authorization_url, pkce, nonce) = self
             .client
             .build_authorization_url()
             .map_err(EkycError::MyDigitalId)?;
@@ -98,10 +100,11 @@ impl EkycService {
             tenant_id: tenant_id.to_string(),
             verification_id: verification_id.to_string(),
             state: pkce.state.clone(),
+            nonce,
             code_verifier: pkce.code_verifier.clone(),
             code_challenge: pkce.code_challenge.clone(),
-            redirect_uri: authorization_url.clone(),
-            scope: "openid profile ic_number".to_string(),
+            redirect_uri: self.client.redirect_uri().to_string(),
+            scope: self.client.scope().to_string(),
             expires_at: now + Duration::minutes(10),
             created_at: now,
         };
@@ -122,8 +125,8 @@ impl EkycService {
         state: &str,
         session: &OAuthSession,
     ) -> Result<CallbackResponse, EkycError> {
-        // Verify state matches
-        if session.state != state {
+        // Verify state matches (constant-time comparison prevents timing attacks)
+        if !constant_time_eq(session.state.as_bytes(), state.as_bytes()) {
             return Err(EkycError::StateMismatch);
         }
 
@@ -139,11 +142,29 @@ impl EkycService {
             .await
             .map_err(EkycError::MyDigitalId)?;
 
+        if !tokens.token_type.eq_ignore_ascii_case("Bearer") {
+            return Err(EkycError::MyDigitalId(
+                MyDigitalIdError::UnsupportedTokenType(tokens.token_type),
+            ));
+        }
+
+        let id_token = tokens
+            .id_token
+            .as_deref()
+            .ok_or(EkycError::MyDigitalId(MyDigitalIdError::MissingIdToken))?;
+        let id_token_claims = self
+            .client
+            .validate_id_token(id_token, &tokens.access_token, &session.nonce)
+            .await
+            .map_err(EkycError::MyDigitalId)?;
+
         // Fetch user info
         let user_info = self
             .client
             .fetch_user_info(&tokens.access_token)
             .await
+            .map_err(EkycError::MyDigitalId)?;
+        MyDigitalIdClient::ensure_matching_subject(&id_token_claims, &user_info)
             .map_err(EkycError::MyDigitalId)?;
 
         // Process claims (hash PII)
@@ -257,10 +278,13 @@ mod tests {
         // Session should be created
         assert!(response.session.id.starts_with("OAS_"));
         assert!(!response.session.state.is_empty());
+        assert!(!response.session.nonce.is_empty());
         assert!(!response.session.code_verifier.is_empty());
+        assert_eq!(response.session.redirect_uri, "vaultpass://callback");
 
         // Authorization URL should be valid
         assert!(response.authorization_url.contains("response_type=code"));
+        assert!(response.authorization_url.contains("nonce="));
     }
 
     #[test]
@@ -286,7 +310,10 @@ mod tests {
         };
 
         service
-            .bind_did(&mut verification, "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK")
+            .bind_did(
+                &mut verification,
+                "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+            )
             .expect("Should bind DID");
 
         assert_eq!(

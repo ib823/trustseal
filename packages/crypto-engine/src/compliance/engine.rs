@@ -55,9 +55,7 @@ impl ComplianceEngine {
     /// Create a new compliance engine with default checks.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            checks: Vec::new(),
-        }
+        Self { checks: Vec::new() }
     }
 
     /// Create a compliance engine with all standard checks.
@@ -150,10 +148,9 @@ impl ComplianceEngine {
         if result.is_compliant() {
             Ok(result)
         } else {
-            Err(result
-                .first_error()
-                .cloned()
-                .unwrap_or_else(|| ComplianceError::new("SAHI_2300", "Compliance check failed", "unknown")))
+            Err(result.first_error().cloned().unwrap_or_else(|| {
+                ComplianceError::new("SAHI_2300", "Compliance check failed", "unknown")
+            }))
         }
     }
 }

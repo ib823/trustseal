@@ -277,7 +277,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(credential.credential_type[1], "BitstringStatusListCredential");
+        assert_eq!(
+            credential.credential_type[1],
+            "BitstringStatusListCredential"
+        );
         assert_eq!(credential.credential_subject.status_purpose, "revocation");
         assert!(credential.valid_until.is_some());
     }
@@ -343,7 +346,10 @@ mod tests {
         let json = serde_json::to_value(&credential).unwrap();
 
         assert_eq!(json["@context"][0], "https://www.w3.org/ns/credentials/v2");
-        assert_eq!(json["@context"][1], "https://www.w3.org/ns/credentials/status-list/v1");
+        assert_eq!(
+            json["@context"][1],
+            "https://www.w3.org/ns/credentials/status-list/v1"
+        );
         assert_eq!(json["type"][1], "BitstringStatusListCredential");
         assert_eq!(json["credentialSubject"]["type"], "BitstringStatusList");
         assert!(json["credentialSubject"]["encodedList"].is_string());

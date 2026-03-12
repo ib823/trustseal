@@ -37,3 +37,8 @@ http = ["reqwest"]
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
 futures = "0.3"
+criterion = { workspace = true }
+
+[[bench]]
+name = "crypto_benchmarks"
+harness = false

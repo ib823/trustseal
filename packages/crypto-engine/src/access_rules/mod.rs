@@ -17,6 +17,5 @@ pub use conditions::{
 };
 pub use engine::RulesEngine;
 pub use types::{
-    AccessAction, AccessDecision, AccessRule, Condition, ConditionMatch, EvaluationContext,
-    RuleSet,
+    AccessAction, AccessDecision, AccessRule, Condition, ConditionMatch, EvaluationContext, RuleSet,
 };

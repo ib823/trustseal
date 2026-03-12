@@ -69,10 +69,7 @@ impl PolicyEngine {
 
         for rule in sorted_rules {
             if let Some(decision) = rule.evaluate(&context) {
-                debug!(
-                    "Rule '{}' matched, decision: {:?}",
-                    rule.name, decision
-                );
+                debug!("Rule '{}' matched, decision: {:?}", rule.name, decision);
                 return decision;
             }
         }
@@ -126,7 +123,7 @@ impl PolicyEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{HardwareConfig, OfflineConfig, VerifierConfig, BleConfig, NfcConfig};
+    use crate::config::{BleConfig, HardwareConfig, NfcConfig, OfflineConfig, VerifierConfig};
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -153,13 +150,15 @@ mod tests {
     async fn test_default_deny() {
         let engine = PolicyEngine::new(&test_config());
 
-        let decision = engine.evaluate(
-            Some("did:key:z6Mk..."),
-            Some("did:web:sahi.my"),
-            Some("ResidentBadge"),
-            None,
-            None,
-        ).await;
+        let decision = engine
+            .evaluate(
+                Some("did:key:z6Mk..."),
+                Some("did:web:sahi.my"),
+                Some("ResidentBadge"),
+                None,
+                None,
+            )
+            .await;
 
         assert_eq!(decision, AccessDecision::Deny);
     }
@@ -169,26 +168,28 @@ mod tests {
         let engine = PolicyEngine::new(&test_config());
 
         // Add an allow rule
-        engine.add_rule(AccessRule {
-            id: "RULE_01".to_string(),
-            name: "Allow all residents".to_string(),
-            priority: 1,
-            conditions: vec![
-                super::super::rules::RuleCondition::CredentialType {
+        engine
+            .add_rule(AccessRule {
+                id: "RULE_01".to_string(),
+                name: "Allow all residents".to_string(),
+                priority: 1,
+                conditions: vec![super::super::rules::RuleCondition::CredentialType {
                     allowed: vec!["ResidentBadge".to_string()],
-                },
-            ],
-            action: AccessDecision::Allow,
-            enabled: true,
-        }).await;
+                }],
+                action: AccessDecision::Allow,
+                enabled: true,
+            })
+            .await;
 
-        let decision = engine.evaluate(
-            Some("did:key:z6Mk..."),
-            Some("did:web:sahi.my"),
-            Some("ResidentBadge"),
-            None,
-            None,
-        ).await;
+        let decision = engine
+            .evaluate(
+                Some("did:key:z6Mk..."),
+                Some("did:web:sahi.my"),
+                Some("ResidentBadge"),
+                None,
+                None,
+            )
+            .await;
 
         assert_eq!(decision, AccessDecision::Allow);
     }
@@ -198,36 +199,34 @@ mod tests {
         let engine = PolicyEngine::new(&test_config());
 
         // Lower priority (runs first) denies
-        engine.add_rule(AccessRule {
-            id: "RULE_01".to_string(),
-            name: "Deny contractors".to_string(),
-            priority: 1,
-            conditions: vec![
-                super::super::rules::RuleCondition::CredentialType {
+        engine
+            .add_rule(AccessRule {
+                id: "RULE_01".to_string(),
+                name: "Deny contractors".to_string(),
+                priority: 1,
+                conditions: vec![super::super::rules::RuleCondition::CredentialType {
                     allowed: vec!["ContractorBadge".to_string()],
-                },
-            ],
-            action: AccessDecision::Deny,
-            enabled: true,
-        }).await;
+                }],
+                action: AccessDecision::Deny,
+                enabled: true,
+            })
+            .await;
 
         // Higher priority (runs second) would allow
-        engine.add_rule(AccessRule {
-            id: "RULE_02".to_string(),
-            name: "Allow all".to_string(),
-            priority: 10,
-            conditions: vec![],
-            action: AccessDecision::Allow,
-            enabled: true,
-        }).await;
+        engine
+            .add_rule(AccessRule {
+                id: "RULE_02".to_string(),
+                name: "Allow all".to_string(),
+                priority: 10,
+                conditions: vec![],
+                action: AccessDecision::Allow,
+                enabled: true,
+            })
+            .await;
 
-        let decision = engine.evaluate(
-            None,
-            None,
-            Some("ContractorBadge"),
-            None,
-            None,
-        ).await;
+        let decision = engine
+            .evaluate(None, None, Some("ContractorBadge"), None, None)
+            .await;
 
         // First matching rule wins
         assert_eq!(decision, AccessDecision::Deny);
