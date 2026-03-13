@@ -20,7 +20,12 @@
     "clearAll": "Clear all",
     "all": "All",
     "showingResults": "Showing {count} of {total} entries",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "toggleTheme": "Toggle theme",
+    "notifications": "Notifications",
+    "profileAvatar": "Profile",
+    "productName": "VaultPass",
+    "units": "units"
   },
   "dashboard": {
     "title": "Dashboard",

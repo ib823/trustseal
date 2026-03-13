@@ -93,18 +93,26 @@ impl SdJwtIssuer {
         // Add key binding if holder public key provided
         if let Some(ref holder_key) = options.holder_public_key {
             // Convert Value to JsonObject (Map<String, Value>)
-            let jwk_object = holder_key.as_object().cloned().unwrap_or_default();
+            let jwk_object = holder_key.as_object().cloned().ok_or_else(|| {
+                CryptoError::Internal(
+                    "holder_public_key must be a JSON object (JWK format)".to_string(),
+                )
+            })?;
             let key_binding = RequiredKeyBinding::Jwk(jwk_object);
             builder = builder.require_key_binding(key_binding);
         }
 
-        // Create the signer
+        // Create the signer — auto-detect algorithm from key metadata
         let key_handle = KeyHandle::new(options.key_handle);
-        let signer = KmsSigner::ed25519(Arc::clone(&self.kms), key_handle);
+        let key_meta = self.kms.get_key_metadata(&key_handle).await.map_err(|e| {
+            CryptoError::Internal(format!("Failed to fetch key metadata for signing: {e}"))
+        })?;
+        let signing_algorithm = SigningAlgorithm::from_key_algorithm(key_meta.algorithm);
+        let signer = KmsSigner::new(Arc::clone(&self.kms), key_handle, signing_algorithm);
 
         // Sign and finalize
         let sd_jwt = builder
-            .finish(&signer, SigningAlgorithm::EdDSA.as_str())
+            .finish(&signer, signing_algorithm.as_str())
             .await
             .map_err(|e| CryptoError::Internal(format!("Failed to sign SD-JWT: {e}")))?;
 

@@ -10,6 +10,13 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tracing::debug;
 
+/// Get current Unix timestamp in seconds, safe for devices without RTC.
+fn unix_timestamp_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
 /// SD-JWT verification errors.
 #[derive(Debug, Error)]
 pub enum VerificationError {
@@ -226,10 +233,7 @@ impl SdJwtVerifier {
         let nbf = Self::extract_timestamp(&disclosed_claims, &["nbf"], &["validFrom"]);
         let iat = Self::extract_timestamp(&disclosed_claims, &["iat"], &["issuedAt"]);
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs() as i64;
+        let now = unix_timestamp_secs();
 
         if let Some(exp_time) = exp {
             if now > exp_time {

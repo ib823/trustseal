@@ -2,7 +2,7 @@ use chrono::Utc;
 use ring::digest::{digest, SHA256};
 
 use super::types::{ConsistencyProof, EventType, Hash256, InclusionProof, MerkleLogEntry};
-use crate::error::{CryptoError, ErrorCode};
+use crate::error::CryptoError;
 
 /// Domain separation prefix for leaf hashes (prevents second-preimage attacks).
 const LEAF_PREFIX: u8 = 0x00;
@@ -35,10 +35,15 @@ fn hash_node(left: &Hash256, right: &Hash256) -> Hash256 {
 /// In-memory Merkle tree for the tamper-evident log engine (F2).
 ///
 /// Binary hash tree using SHA-256. Append-only.
+/// Uses cached intermediate hashes so that `append` is O(log n) instead of O(n).
+///
 /// For production, the leaves and tree state are persisted in PostgreSQL
 /// with append-only constraints (no UPDATE/DELETE).
 pub struct MerkleTree {
     leaves: Vec<Hash256>,
+    /// Cached hashes at each level. `levels[0]` = leaf hashes, `levels[1]` = first
+    /// interior level, etc. Only the rightmost path changes on append.
+    levels: Vec<Vec<Hash256>>,
     root: Hash256,
     next_sequence: u64,
     entries: Vec<MerkleLogEntry>,
@@ -49,6 +54,7 @@ impl MerkleTree {
     pub fn new() -> Self {
         Self {
             leaves: Vec::new(),
+            levels: Vec::new(),
             root: [0u8; 32],
             next_sequence: 0,
             entries: Vec::new(),
@@ -66,6 +72,9 @@ impl MerkleTree {
     }
 
     /// Append an event to the log. Returns the log entry with computed hashes.
+    ///
+    /// This operation is O(log n) — only the affected path from the new leaf
+    /// to the root is recomputed.
     ///
     /// In production, this MUST be in the same database transaction as the
     /// business event that triggered it (atomicity requirement).
@@ -86,7 +95,7 @@ impl MerkleTree {
         let previous_root = self.root;
 
         self.leaves.push(leaf_hash);
-        self.root = Self::compute_root_from_leaves(&self.leaves);
+        self.update_root_incremental(leaf_hash);
 
         let entry = MerkleLogEntry {
             entry_id: format!("LOG_{}", ulid::Ulid::new()),
@@ -104,6 +113,84 @@ impl MerkleTree {
         entry
     }
 
+    /// Incrementally update the cached levels and root after appending a new leaf.
+    /// Only touches the rightmost path — O(log n).
+    fn update_root_incremental(&mut self, leaf_hash: Hash256) {
+        // Ensure level 0 exists
+        if self.levels.is_empty() {
+            self.levels.push(Vec::new());
+        }
+
+        // Append to level 0 (leaf level)
+        self.levels[0].push(leaf_hash);
+
+        let mut level = 0;
+        loop {
+            let level_len = self.levels[level].len();
+            // If the level has an even count, we can compute a new parent
+            if level_len >= 2 && level_len % 2 == 0 {
+                let parent = hash_node(
+                    &self.levels[level][level_len - 2],
+                    &self.levels[level][level_len - 1],
+                );
+                // Ensure next level exists
+                if level + 1 >= self.levels.len() {
+                    self.levels.push(Vec::new());
+                }
+                self.levels[level + 1].push(parent);
+                level += 1;
+            } else {
+                // Odd count — no new parent yet. The current node is promoted.
+                break;
+            }
+        }
+
+        // Recompute root from the topmost entries of each level
+        self.root = self.compute_root_from_levels();
+    }
+
+    /// Compute the tree root from the cached levels.
+    /// Walks from the highest level down, combining any unpaired (odd) nodes.
+    fn compute_root_from_levels(&self) -> Hash256 {
+        if self.levels.is_empty() || self.levels[0].is_empty() {
+            return [0u8; 32];
+        }
+
+        // Collect the "rightmost unpaired" hash at each level, from bottom up
+        let mut carry: Option<Hash256> = None;
+
+        for level in &self.levels {
+            if level.len() % 2 == 1 {
+                // Odd: the last element is unpaired
+                let unpaired = *level.last().unwrap();
+                carry = Some(match carry {
+                    Some(c) => hash_node(&unpaired, &c),
+                    None => unpaired,
+                });
+            } else if let Some(c) = carry {
+                // Even: all paired, but we have a carry from below.
+                // The carry needs to be combined with the last parent at the next level.
+                // This is already handled by the level structure, so just propagate.
+                carry = Some(c);
+            }
+        }
+
+        // If there's a carry, it IS the root (or the last level's single element)
+        if let Some(c) = carry {
+            return c;
+        }
+
+        // All levels are fully paired. The root is the single element at the top level.
+        if let Some(top) = self.levels.last() {
+            if top.len() == 1 {
+                return top[0];
+            }
+        }
+
+        // Fallback: recompute from leaves (should not happen with correct bookkeeping)
+        Self::compute_root_from_leaves(&self.leaves)
+    }
+
     /// Generate an inclusion proof for a leaf at the given index.
     ///
     /// # Errors
@@ -112,13 +199,10 @@ impl MerkleTree {
     pub fn inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, CryptoError> {
         let idx = leaf_index as usize;
         if idx >= self.leaves.len() {
-            return Err(CryptoError::kms(
-                ErrorCode::KeyNotFound,
-                format!(
-                    "Leaf index {leaf_index} out of range (tree size: {})",
-                    self.leaves.len()
-                ),
-            ));
+            return Err(CryptoError::Internal(format!(
+                "Leaf index {leaf_index} out of range (tree size: {})",
+                self.leaves.len()
+            )));
         }
 
         let proof_hashes = Self::compute_audit_path(idx, &self.leaves);

@@ -30,6 +30,7 @@ use sahi_core::ulid::{TypedUlid, UlidPrefix};
 pub use mydigital_id::{MyDigitalIdClient, MyDigitalIdConfig, MyDigitalIdError};
 #[allow(unused_imports)]
 pub use pkce::{constant_time_eq, PkceParams};
+#[allow(unused_imports)]
 pub use store::{EkycStore, InMemoryEkycStore, PostgresEkycStore, SharedEkycStore};
 pub use types::{
     AssuranceLevel, IdentityVerification, OAuthSession, VerificationProvider, VerificationStatus,

@@ -204,13 +204,21 @@ impl CeremonyRepository {
         let state_before_abort = row
             .state_before_abort
             .as_ref()
-            .map(|s| CeremonyState::from_str(s));
+            .map(|s| CeremonyState::parse_db(s))
+            .transpose()
+            .map_err(|e| {
+                OrchestratorError::DatabaseError(format!("Invalid state_before_abort: {e}"))
+            })?;
+
+        let state = CeremonyState::parse_db(&row.state).map_err(|e| {
+            OrchestratorError::DatabaseError(format!("Invalid ceremony state: {e}"))
+        })?;
 
         let ceremony = Ceremony {
             id: CeremonyId(row.id),
             tenant_id: row.tenant_id,
             created_by: row.created_by,
-            state: CeremonyState::from_str(&row.state),
+            state,
             state_before_abort,
             ceremony_type: CeremonyType::from_str(&row.ceremony_type),
             document: CeremonyDocument {

@@ -120,23 +120,24 @@ impl CeremonyState {
 
     /// Parse from database string.
     ///
-    /// Returns `Created` for unknown values (database constraints should prevent this).
-    #[must_use]
-    #[allow(clippy::match_same_arms)] // Wildcard fallback is intentional for safety
-    pub fn from_str(s: &str) -> Self {
+    /// # Errors
+    /// Returns an error if the string does not match a known state.
+    pub fn parse_db(s: &str) -> Result<Self, StateTransitionError> {
         match s {
-            "CREATED" => Self::Created,
-            "PREPARING" => Self::Preparing,
-            "READY_FOR_SIGNATURES" => Self::ReadyForSignatures,
-            "SIGNING_IN_PROGRESS" => Self::SigningInProgress,
-            "PARTIALLY_SIGNED" => Self::PartiallySigned,
-            "FULLY_SIGNED" => Self::FullySigned,
-            "TIMESTAMPING" => Self::Timestamping,
-            "AUGMENTING_LTV" => Self::AugmentingLtv,
-            "COMPLETE" => Self::Complete,
-            "ABORTED" => Self::Aborted,
-            "RESUMING" => Self::Resuming,
-            _ => Self::Created, // DB constraints prevent this
+            "CREATED" => Ok(Self::Created),
+            "PREPARING" => Ok(Self::Preparing),
+            "READY_FOR_SIGNATURES" => Ok(Self::ReadyForSignatures),
+            "SIGNING_IN_PROGRESS" => Ok(Self::SigningInProgress),
+            "PARTIALLY_SIGNED" => Ok(Self::PartiallySigned),
+            "FULLY_SIGNED" => Ok(Self::FullySigned),
+            "TIMESTAMPING" => Ok(Self::Timestamping),
+            "AUGMENTING_LTV" => Ok(Self::AugmentingLtv),
+            "COMPLETE" => Ok(Self::Complete),
+            "ABORTED" => Ok(Self::Aborted),
+            "RESUMING" => Ok(Self::Resuming),
+            _ => Err(StateTransitionError::PreconditionNotMet(format!(
+                "Unknown ceremony state: {s}"
+            ))),
         }
     }
 }
@@ -292,14 +293,17 @@ mod tests {
     }
 
     #[test]
-    fn test_state_from_str() {
-        assert_eq!(CeremonyState::from_str("CREATED"), CeremonyState::Created);
+    fn test_state_parse_db() {
         assert_eq!(
-            CeremonyState::from_str("AUGMENTING_LTV"),
+            CeremonyState::parse_db("CREATED").unwrap(),
+            CeremonyState::Created
+        );
+        assert_eq!(
+            CeremonyState::parse_db("AUGMENTING_LTV").unwrap(),
             CeremonyState::AugmentingLtv
         );
-        // Unknown values default to Created (DB constraints should prevent this)
-        assert_eq!(CeremonyState::from_str("INVALID"), CeremonyState::Created);
+        // Unknown values return an error
+        assert!(CeremonyState::parse_db("INVALID").is_err());
     }
 
     #[test]

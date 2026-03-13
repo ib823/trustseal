@@ -33,7 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 dotenvy = "0.15"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip", "limit", "set-header", "timeout"] }
 redis = { version = "0.27", features = ["tokio-comp"] }
 async-trait = "0.1"
 zeroize = { version = "1", features = ["derive"] }
@@ -43,6 +43,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 urlencoding = "2"
 sha2 = "0.10"
 criterion = { version = "0.5", features = ["html_reports"] }
+dashmap = "6"
 
 [profile.release]
 opt-level = 3

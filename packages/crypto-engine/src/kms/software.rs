@@ -24,8 +24,8 @@ use crate::error::{CryptoError, ErrorCode};
 #[derive(Zeroize)]
 #[zeroize(drop)]
 struct SoftwareKeyMaterial {
-    /// PKCS#8 DER-encoded private key
-    #[zeroize(skip)] // ring's key types don't impl Zeroize, but Vec<u8> does
+    /// PKCS#8 DER-encoded private key — zeroized on drop to prevent
+    /// private key material from lingering in memory.
     pkcs8_der: Vec<u8>,
 }
 

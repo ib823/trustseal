@@ -237,8 +237,8 @@ impl SignerSlot {
     /// Check if the invitation has expired.
     #[must_use]
     pub fn invitation_expired(&self, now: &str) -> bool {
-        let Ok(current) =
-            chrono::DateTime::parse_from_rfc3339(now).map(|value| value.with_timezone(&chrono::Utc))
+        let Ok(current) = chrono::DateTime::parse_from_rfc3339(now)
+            .map(|value| value.with_timezone(&chrono::Utc))
         else {
             return false;
         };

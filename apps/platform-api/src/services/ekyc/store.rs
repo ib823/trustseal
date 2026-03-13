@@ -57,6 +57,11 @@ pub trait EkycStore: Send + Sync {
     ) -> Result<IdentityVerification, EkycError>;
 
     async fn delete_session(&self, tenant_id: &str, session_id: &str) -> Result<(), EkycError>;
+
+    /// Health check — verify database connectivity. Default returns Ok.
+    async fn health_check(&self) -> Result<(), EkycError> {
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -534,6 +539,14 @@ impl EkycStore for PostgresEkycStore {
             .map_err(|e| EkycError::Database(e.to_string()))?;
 
         tx.commit()
+            .await
+            .map_err(|e| EkycError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn health_check(&self) -> Result<(), EkycError> {
+        sqlx::query("SELECT 1")
+            .execute(&self.pool)
             .await
             .map_err(|e| EkycError::Database(e.to_string()))?;
         Ok(())

@@ -20,7 +20,12 @@
     "clearAll": "Padam semua",
     "all": "Semua",
     "showingResults": "Menunjukkan {count} daripada {total} entri",
-    "workspace": "Ruang Kerja"
+    "workspace": "Ruang Kerja",
+    "toggleTheme": "Tukar tema",
+    "notifications": "Pemberitahuan",
+    "profileAvatar": "Profil",
+    "productName": "VaultPass",
+    "units": "unit"
   },
   "dashboard": {
     "title": "Papan Pemuka",

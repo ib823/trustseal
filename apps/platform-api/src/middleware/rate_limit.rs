@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -11,8 +10,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use dashmap::DashMap;
 use sahi_core::error::{ErrorCode, ErrorResponse, SahiError};
-use tokio::sync::Mutex;
+
+/// Maximum idle time before a bucket is evicted (10 minutes).
+const BUCKET_IDLE_TTL: Duration = Duration::from_secs(600);
+
+/// Maximum number of buckets before forced eviction of oldest entries.
+const MAX_BUCKETS: usize = 10_000;
 
 /// Rate limiter tier configuration.
 #[derive(Debug, Clone, Copy)]
@@ -76,12 +81,16 @@ impl Bucket {
             Duration::from_secs(60)
         }
     }
+
+    fn is_idle(&self) -> bool {
+        self.last_refill.elapsed() > BUCKET_IDLE_TTL
+    }
 }
 
-/// Shared rate limiter state.
+/// Shared rate limiter state using a lock-free concurrent map.
 #[derive(Clone)]
 pub struct RateLimiter {
-    buckets: Arc<Mutex<HashMap<String, Bucket>>>,
+    buckets: Arc<DashMap<String, Bucket>>,
     tier: RateLimitTier,
     trust_proxy_headers: bool,
 }
@@ -93,18 +102,24 @@ impl RateLimiter {
 
     pub fn with_proxy_headers(tier: RateLimitTier, trust_proxy_headers: bool) -> Self {
         Self {
-            buckets: Arc::new(Mutex::new(HashMap::new())),
+            buckets: Arc::new(DashMap::new()),
             tier,
             trust_proxy_headers,
         }
     }
 
-    async fn check(&self, key: &str) -> Result<(), Duration> {
-        let mut buckets = self.buckets.lock().await;
-        let bucket = buckets
+    fn check(&self, key: &str) -> Result<(), Duration> {
+        // Evict idle buckets when the map grows too large
+        if self.buckets.len() >= MAX_BUCKETS {
+            self.buckets.retain(|_, bucket| !bucket.is_idle());
+        }
+
+        let mut entry = self
+            .buckets
             .entry(key.to_string())
             .or_insert_with(|| Bucket::new(self.tier));
 
+        let bucket = entry.value_mut();
         if bucket.try_consume() {
             Ok(())
         } else {
@@ -126,7 +141,7 @@ pub async fn rate_limit(request: Request, next: Next) -> Response {
     let key =
         client_ip(&request, limiter.trust_proxy_headers).unwrap_or_else(|| "unknown".to_string());
 
-    match limiter.check(&key).await {
+    match limiter.check(&key) {
         Ok(()) => next.run(request).await,
         Err(retry_after) => {
             let retry_secs = retry_after.as_secs().max(1);
