@@ -69,16 +69,16 @@ impl IntoResponse for ApiError {
 pub fn ceremony_router() -> Router<AppState> {
     Router::new()
         .route("/", post(create_ceremony))
-        .route("/:id", get(get_ceremony))
-        .route("/:id/prepare", post(prepare_ceremony))
-        .route("/:id/ready", post(ready_for_signatures))
-        .route("/:id/abort", post(abort_ceremony))
-        .route("/:id/resume", post(resume_ceremony))
+        .route("/{id}", get(get_ceremony))
+        .route("/{id}/prepare", post(prepare_ceremony))
+        .route("/{id}/ready", post(ready_for_signatures))
+        .route("/{id}/abort", post(abort_ceremony))
+        .route("/{id}/resume", post(resume_ceremony))
         .route(
-            "/:id/signers/:signer_id/authenticate",
+            "/{id}/signers/{signer_id}/authenticate",
             post(authenticate_signer),
         )
-        .route("/:id/signers/:signer_id/sign", post(sign))
+        .route("/{id}/signers/{signer_id}/sign", post(sign))
 }
 
 #[derive(Debug, Deserialize)]
@@ -579,7 +579,9 @@ fn orchestrator_error_response(error: &OrchestratorError) -> Response {
         | OrchestratorError::AbortFailed(_)
         | OrchestratorError::ResumeFailed(_)
         | OrchestratorError::DocumentError(_) => StatusCode::BAD_REQUEST,
-        OrchestratorError::SignerNotReady | OrchestratorError::AlreadySigned => StatusCode::CONFLICT,
+        OrchestratorError::SignerNotReady | OrchestratorError::AlreadySigned => {
+            StatusCode::CONFLICT
+        }
         OrchestratorError::CeremonyExpiredError => StatusCode::GONE,
         OrchestratorError::CeremonyNotFound(_) | OrchestratorError::SignerNotFound(_) => {
             StatusCode::NOT_FOUND

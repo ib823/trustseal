@@ -94,16 +94,21 @@ impl TransitionRepository {
             OrchestratorError::DatabaseError(format!("Failed to list transitions: {e}"))
         })?;
 
-        let transitions = rows
-            .into_iter()
-            .map(|row| CeremonyTransition {
-                from_state: CeremonyState::from_str(&row.from_state),
-                to_state: CeremonyState::from_str(&row.to_state),
+        let mut transitions = Vec::with_capacity(rows.len());
+        for row in rows {
+            let from_state = CeremonyState::parse_db(&row.from_state).map_err(|e| {
+                OrchestratorError::DatabaseError(format!("Invalid from_state: {e}"))
+            })?;
+            let to_state = CeremonyState::parse_db(&row.to_state)
+                .map_err(|e| OrchestratorError::DatabaseError(format!("Invalid to_state: {e}")))?;
+            transitions.push(CeremonyTransition {
+                from_state,
+                to_state,
                 reason: row.reason,
                 actor: row.actor,
                 timestamp: row.transitioned_at.to_rfc3339(),
-            })
-            .collect();
+            });
+        }
 
         Ok(transitions)
     }

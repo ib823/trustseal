@@ -2,7 +2,7 @@ use chrono::Utc;
 use ring::digest::{digest, SHA256};
 
 use super::types::{ConsistencyProof, EventType, Hash256, InclusionProof, MerkleLogEntry};
-use crate::error::{CryptoError, ErrorCode};
+use crate::error::CryptoError;
 
 /// Domain separation prefix for leaf hashes (prevents second-preimage attacks).
 const LEAF_PREFIX: u8 = 0x00;
@@ -112,13 +112,10 @@ impl MerkleTree {
     pub fn inclusion_proof(&self, leaf_index: u64) -> Result<InclusionProof, CryptoError> {
         let idx = leaf_index as usize;
         if idx >= self.leaves.len() {
-            return Err(CryptoError::kms(
-                ErrorCode::KeyNotFound,
-                format!(
-                    "Leaf index {leaf_index} out of range (tree size: {})",
-                    self.leaves.len()
-                ),
-            ));
+            return Err(CryptoError::Internal(format!(
+                "Leaf index {leaf_index} out of range (tree size: {})",
+                self.leaves.len()
+            )));
         }
 
         let proof_hashes = Self::compute_audit_path(idx, &self.leaves);

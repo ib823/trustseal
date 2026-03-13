@@ -75,6 +75,14 @@ impl SigningAlgorithm {
             Self::ES256 => KeyAlgorithm::EcdsaP256,
         }
     }
+
+    /// Auto-detect the signing algorithm from a KMS key algorithm.
+    pub fn from_key_algorithm(algorithm: KeyAlgorithm) -> Self {
+        match algorithm {
+            KeyAlgorithm::Ed25519 => Self::EdDSA,
+            KeyAlgorithm::EcdsaP256 => Self::ES256,
+        }
+    }
 }
 
 impl fmt::Display for SigningAlgorithm {

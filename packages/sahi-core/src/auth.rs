@@ -3,9 +3,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 /// Supported application roles for bearer-token authorization.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
     PlatformAdmin,

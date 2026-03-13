@@ -14,6 +14,12 @@ use axum::{
 use sahi_core::error::{ErrorCode, ErrorResponse, SahiError};
 use tokio::sync::Mutex;
 
+/// Maximum idle time before a bucket is evicted (10 minutes).
+const BUCKET_IDLE_TTL: Duration = Duration::from_secs(600);
+
+/// Maximum number of buckets before forced eviction of oldest entries.
+const MAX_BUCKETS: usize = 10_000;
+
 /// Rate limiter tier configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct RateLimitTier {
@@ -76,6 +82,10 @@ impl Bucket {
             Duration::from_secs(60)
         }
     }
+
+    fn is_idle(&self) -> bool {
+        self.last_refill.elapsed() > BUCKET_IDLE_TTL
+    }
 }
 
 /// Shared rate limiter state.
@@ -101,6 +111,12 @@ impl RateLimiter {
 
     async fn check(&self, key: &str) -> Result<(), Duration> {
         let mut buckets = self.buckets.lock().await;
+
+        // Evict idle buckets when the map grows too large
+        if buckets.len() >= MAX_BUCKETS {
+            buckets.retain(|_, bucket| !bucket.is_idle());
+        }
+
         let bucket = buckets
             .entry(key.to_string())
             .or_insert_with(|| Bucket::new(self.tier));

@@ -128,8 +128,15 @@ impl OidcBearerAuthConfig {
 }
 
 pub async fn init_pool(database_url: &str) -> Result<PgPool, String> {
+    let max_connections: u32 = std::env::var("DATABASE_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20);
+
     PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(max_connections)
+        .idle_timeout(Duration::from_secs(300))
+        .acquire_timeout(Duration::from_secs(5))
         .connect(database_url)
         .await
         .map_err(|err| format!("failed to connect to Postgres: {err}"))
