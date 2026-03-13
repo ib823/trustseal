@@ -333,10 +333,7 @@ async fn process_presentation(state: &AppState, sd_jwt: &str) -> PresentationRes
 
     // Check expiration
     if let Some(exp) = verification.exp {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs() as i64;
+        let now = unix_timestamp_secs();
         if now > exp {
             return PresentationResponse::expired("");
         }
@@ -360,6 +357,17 @@ async fn process_presentation(state: &AppState, sd_jwt: &str) -> PresentationRes
         }
         policy::AccessDecision::Deny => PresentationResponse::denied("Access denied by policy", ""),
     }
+}
+
+/// Get current Unix timestamp in seconds, safe for devices without RTC.
+///
+/// On Raspberry Pi cold boot without an RTC battery, `SystemTime::now()` may
+/// return a time before `UNIX_EPOCH`. Instead of panicking, we fall back to 0
+/// so that the verifier can still deny expired credentials (fail-closed).
+fn unix_timestamp_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
 }
 
 /// Wait for shutdown signal (SIGINT or SIGTERM).

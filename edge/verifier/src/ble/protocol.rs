@@ -34,6 +34,13 @@ pub enum ProtocolError {
 /// Maximum presentation size (64KB).
 pub const MAX_PRESENTATION_SIZE: usize = 65536;
 
+/// Get current Unix timestamp in seconds, safe for devices without RTC.
+fn unix_timestamp_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
 /// Challenge validity duration in seconds.
 pub const CHALLENGE_VALIDITY_SECS: u64 = 30;
 
@@ -127,10 +134,7 @@ impl BleProtocol {
 
         let challenge = Challenge {
             nonce: URL_SAFE_NO_PAD.encode(nonce_bytes),
-            issued_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("Time went backwards")
-                .as_secs(),
+            issued_at: unix_timestamp_secs(),
             site_id: self.site_id.clone(),
         };
 
@@ -168,10 +172,7 @@ impl BleProtocol {
         }
 
         // Check not expired
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs();
+        let now = unix_timestamp_secs();
 
         if now - challenge.issued_at > CHALLENGE_VALIDITY_SECS {
             return Err(ProtocolError::ChallengeExpired);

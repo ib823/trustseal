@@ -108,6 +108,7 @@ async fn main() {
     let app = Router::new()
         // Public routes (no tenant required)
         .route("/health", get(routes::health::health_check))
+        .route("/health/ready", get(routes::health::readiness_check))
         // API v1 routes (tenant required)
         .nest(
             "/api/v1",
